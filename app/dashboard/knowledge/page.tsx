@@ -1,162 +1,242 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/app/lib/supabase';
-import { Plus, Edit, X, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { Search, Edit, Trash2, Plus, X, Save } from 'lucide-react';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+type KnowledgeItem = {
+  id: string;
+  numero_originale: string | null;
+  classe: string | null;
+  oggetto: string | null;
+  tipologia: string | null;
+  argomento: string | null;
+  prodotti: string[] | null;
+  contenuto: string | null;
+  data_pubblicazione: string | null;
+};
 
 export default function KnowledgeBasePage() {
-  const [schede, setSchede] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [items, setItems] = useState<KnowledgeItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Stato del form allineato al tuo DB
   const [formData, setFormData] = useState({
-    numero_originale: '', classe: 'Scheda', tipologia: 'Informazioni', oggetto: '', contenuto: ''
+    numero_originale: '',
+    classe: '',
+    oggetto: '',
+    tipologia: '',
+    argomento: '',
+    prodotti: '', // Lo gestiamo come stringa separata da virgola nel form
+    contenuto: '',
+    data_pubblicazione: ''
   });
 
+  const fetchKnowledge = async () => {
+    const { data, error } = await supabase
+      .from('knowledge_base')
+      .select('*')
+      .order('data_creazione', { ascending: false });
+
+    if (!error && data) {
+      setItems(data);
+    }
+  };
+
   useEffect(() => {
-    fetchKnowledgeBase();
+    fetchKnowledge();
   }, []);
 
-  const fetchKnowledgeBase = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('knowledge_base').select('*').order('data_creazione', { ascending: false });
-    if (data) setSchede(data);
-    setLoading(false);
+  const filteredItems = items.filter(item => 
+    (item.oggetto?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
+    (item.contenuto?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (item.argomento?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+  );
+
+  const handleAddNew = () => {
+    setFormData({
+      numero_originale: '', classe: '', oggetto: '', tipologia: '', 
+      argomento: '', prodotti: '', contenuto: '', data_pubblicazione: ''
+    });
+    setEditingId(null);
+    setIsFormOpen(true);
   };
 
-  const openModal = (scheda: any = null) => {
-    if (scheda) {
-      setEditingId(scheda.id);
-      setFormData({
-        numero_originale: scheda.numero_originale || '', classe: scheda.classe || 'Scheda',
-        tipologia: scheda.tipologia || 'Informazioni', oggetto: scheda.oggetto || '', contenuto: scheda.contenuto || ''
-      });
-    } else {
-      setEditingId(null);
-      setFormData({ numero_originale: '', classe: 'Scheda', tipologia: 'Informazioni', oggetto: '', contenuto: '' });
-    }
-    setIsModalOpen(true);
+  const handleEdit = (item: KnowledgeItem) => {
+    setFormData({
+      numero_originale: item.numero_originale || '',
+      classe: item.classe || '',
+      oggetto: item.oggetto || '',
+      tipologia: item.tipologia || '',
+      argomento: item.argomento || '',
+      prodotti: item.prodotti ? item.prodotti.join(', ') : '', // Array -> Stringa
+      contenuto: item.contenuto || '',
+      data_pubblicazione: item.data_pubblicazione || ''
+    });
+    setEditingId(item.id);
+    setIsFormOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      await supabase.from('knowledge_base').update(formData).eq('id', editingId);
-    } else {
-      await supabase.from('knowledge_base').insert([formData]);
+    if (!formData.oggetto || !formData.contenuto) return;
+    
+    setIsLoading(true);
+
+    // Converte i prodotti (stringa) in array pulito, rimuovendo spazi
+    const arrayProdotti = formData.prodotti 
+      ? formData.prodotti.split(',').map(p => p.trim()).filter(p => p !== '') 
+      : null;
+
+    const payload = {
+      numero_originale: formData.numero_originale || null,
+      classe: formData.classe || null,
+      oggetto: formData.oggetto,
+      tipologia: formData.tipologia || null,
+      argomento: formData.argomento || null,
+      prodotti: arrayProdotti,
+      contenuto: formData.contenuto,
+      data_pubblicazione: formData.data_pubblicazione || null,
+      embedding: null // Forziamo a null per obbligare l'IA a ricalcolarlo
+    };
+
+    try {
+      if (editingId) {
+        const { error } = await supabase.from('knowledge_base').update(payload).eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('knowledge_base').insert([payload]);
+        if (error) throw error;
+      }
+
+      await fetchKnowledge();
+      setIsFormOpen(false);
+    } catch (error: any) {
+      alert("Errore salvataggio: " + error.message);
+    } finally {
+      setIsLoading(false);
     }
-    setIsModalOpen(false);
-    fetchKnowledgeBase();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Sei sicuro di voler eliminare questa scheda?')) return;
+    const { error } = await supabase.from('knowledge_base').delete().eq('id', id);
+    if (error) alert("Errore durante l'eliminazione.");
+    else await fetchKnowledge();
   };
 
   return (
-    <div className="p-10 font-sans antialiased">
-      <div className="flex justify-between items-end mb-8 mt-2">
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 mb-1">Knowledge Base</h1>
-          <p className="text-base text-gray-500 font-medium">Archivio dei ticket e soluzioni tecniche</p>
+          <h1 className="text-2xl font-bold text-gray-900">Knowledge Base</h1>
+          <p className="text-gray-500 text-sm mt-1">Gestione archivio documenti IA</p>
         </div>
-        <button onClick={() => openModal()} className="bg-gray-900 text-white font-semibold px-4 py-2.5 rounded-xl hover:bg-black flex items-center transition-all text-sm">
-          <Plus className="h-4 w-4 mr-2" strokeWidth={2} /> Nuova Scheda
+        <button onClick={handleAddNew} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition">
+          <Plus className="w-4 h-4" /> Aggiungi
         </button>
       </div>
 
-      <div className="bg-white rounded-[24px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-gray-400 font-medium text-sm">Recupero schede...</div>
-        ) : schede.length === 0 ? (
-          <div className="p-20 text-center">
-            <div className="w-16 h-16 bg-[#F5F5F7] rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="h-8 w-8 text-gray-400" strokeWidth={1.5} />
-            </div>
-            <p className="text-gray-900 font-semibold tracking-tight text-lg">Nessuna scheda presente</p>
-            <p className="text-gray-400 text-sm mt-1 font-medium">Clicca su "Nuova Scheda" per aggiungere il primo ticket al database.</p>
+      {/* Form */}
+      {isFormOpen && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold">{editingId ? 'Modifica' : 'Nuova Scheda'}</h2>
+            <button onClick={() => setIsFormOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
           </div>
-        ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400 tracking-tight">
-                <th className="px-6 py-4 font-medium">Num.</th>
-                <th className="px-6 py-4 font-medium">Classe</th>
-                <th className="px-6 py-4 font-medium w-1/2">Oggetto</th>
-                <th className="px-6 py-4 font-medium">Tipologia</th>
-                <th className="px-6 py-4 font-medium text-right">Azioni</th>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Numero Originale</label>
+                <input type="text" value={formData.numero_originale} onChange={e => setFormData({...formData, numero_originale: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Data Pubblicazione</label>
+                <input type="date" value={formData.data_pubblicazione} onChange={e => setFormData({...formData, data_pubblicazione: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Classe</label>
+                <input type="text" value={formData.classe} onChange={e => setFormData({...formData, classe: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Tipologia</label>
+                <input type="text" value={formData.tipologia} onChange={e => setFormData({...formData, tipologia: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Argomento</label>
+                <input type="text" value={formData.argomento} onChange={e => setFormData({...formData, argomento: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Prodotti (separati da virgola)</label>
+                <input type="text" value={formData.prodotti} onChange={e => setFormData({...formData, prodotti: e.target.value})} placeholder="Es. ProdottoA, ProdottoB" className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+            </div>
+            
+            <div className="pt-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Oggetto *</label>
+              <input type="text" value={formData.oggetto} onChange={e => setFormData({...formData, oggetto: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" required />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Contenuto *</label>
+              <textarea value={formData.contenuto} onChange={e => setFormData({...formData, contenuto: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm min-h-[120px]" required />
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <button type="submit" disabled={isLoading} className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 disabled:opacity-50 text-sm">
+                <Save className="w-4 h-4" /> {isLoading ? 'Salvataggio...' : 'Salva'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Tabella con Ricerca */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-4 border-b bg-gray-50/50">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Cerca..." className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-blue-500" />
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-6 py-3">Num</th>
+                <th className="px-6 py-3">Oggetto</th>
+                <th className="px-6 py-3">Argomento</th>
+                <th className="px-6 py-3 text-right">Azioni</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {schede.map((scheda) => (
-                <tr key={scheda.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">{scheda.numero_originale || '-'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 font-medium">{scheda.classe || '-'}</td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-semibold text-gray-900 tracking-tight line-clamp-1">{scheda.oggetto}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${scheda.tipologia === 'Anomalie' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
-                      {scheda.tipologia || '-'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={() => openModal(scheda)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-xl transition-colors inline-flex opacity-0 group-hover:opacity-100">
-                      <Edit className="h-4 w-4" strokeWidth={1.5} />
-                    </button>
+            <tbody className="divide-y divide-gray-100">
+              {filteredItems.map(item => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-3 text-gray-500">{item.numero_originale || '-'}</td>
+                  <td className="px-6 py-3 font-medium">{item.oggetto}</td>
+                  <td className="px-6 py-3 text-gray-500">{item.argomento || '-'}</td>
+                  <td className="px-6 py-3 text-right flex justify-end gap-3">
+                    <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-900"><Edit className="w-4 h-4"/></button>
+                    <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-      </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[28px] shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-gray-50 sticky top-0 bg-white/90 backdrop-blur-md z-10">
-              <h2 className="text-xl font-semibold tracking-tight text-gray-900">{editingId ? 'Modifica Scheda' : 'Nuova Scheda'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 p-2 rounded-full transition-colors"><X className="h-5 w-5" strokeWidth={1.5} /></button>
-            </div>
-            
-            <form onSubmit={handleSave} className="p-6 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 pl-1">Num. Originale</label>
-                  <input type="text" value={formData.numero_originale} onChange={(e) => setFormData({...formData, numero_originale: e.target.value})} placeholder="es. 25517" className="w-full p-3.5 bg-[#F5F5F7] border-0 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-medium placeholder-gray-400" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 pl-1">Classe</label>
-                  <select value={formData.classe} onChange={(e) => setFormData({...formData, classe: e.target.value})} className="w-full p-3.5 bg-[#F5F5F7] border-0 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-medium cursor-pointer">
-                    <option value="Scheda">Scheda</option>
-                    <option value="Ticket">Ticket</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 pl-1">Tipologia</label>
-                  <select value={formData.tipologia} onChange={(e) => setFormData({...formData, tipologia: e.target.value})} className="w-full p-3.5 bg-[#F5F5F7] border-0 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-medium cursor-pointer">
-                    <option value="Informazioni">Informazioni</option>
-                    <option value="Anomalie">Anomalie</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 pl-1">Oggetto / Titolo</label>
-                <input type="text" required value={formData.oggetto} onChange={(e) => setFormData({...formData, oggetto: e.target.value})} placeholder="Sintesi del problema..." className="w-full p-3.5 bg-[#F5F5F7] border-0 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-semibold placeholder-gray-400 tracking-tight" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 pl-1">Contenuto della scheda</label>
-                <textarea required rows={8} value={formData.contenuto} onChange={(e) => setFormData({...formData, contenuto: e.target.value})} placeholder="Errore, cause, query SQL e soluzioni..." className="w-full p-4 bg-[#F5F5F7] border-0 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-medium resize-none placeholder-gray-400 leading-relaxed"></textarea>
-              </div>
-
-              <div className="pt-4 flex justify-end space-x-3 mt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition-colors text-sm">Annulla</button>
-                <button type="submit" className="px-5 py-2.5 bg-gray-900 text-white font-semibold rounded-xl hover:bg-black transition-colors text-sm">Salva Scheda</button>
-              </div>
-            </form>
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

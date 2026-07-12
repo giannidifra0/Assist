@@ -20,8 +20,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [router]);
 
+  // FUNZIONE DI SCONNESSIONE AGGIORNATA
   const handleLogout = () => {
+    // 1. Svuota lo storico dei messaggi dell'assistente IA
+    localStorage.removeItem('crm_chat_history');
+    
+    // 2. Rimuove la sessione dell'utente corrente
     localStorage.removeItem('crm_user');
+    
+    // 3. Reindirizza alla pagina di login
     router.push('/login');
   };
 

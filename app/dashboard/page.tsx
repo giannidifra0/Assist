@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-// Inizializza Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -16,28 +15,25 @@ export default function DashboardHome() {
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    async function fetchDashboardData() {
-      // 1. VERIFICA RUOLO ADMIN
-      // Qui controlli l'utente connesso. Sostituisci 'profiles' con la tua tabella utenti se diversa.
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Esempio: recuperiamo il ruolo dal DB
-        // const { data: profile } = await supabase.from('profiles').select('ruolo').eq('id', user.id).single();
-        // if (profile?.ruolo === 'admin') setIsAdmin(true);
-        
-        // Per ora lo imposto a TRUE per farti testare il bottone.
-        // Quando avrai i ruoli reali nel DB, de-commenta le due righe sopra e cancella questa sotto:
-        setIsAdmin(true); 
+    // 1. VERIFICA RUOLO ADMIN (Ora legge dal localStorage, identico alla Sidebar)
+    const storedUser = localStorage.getItem('crm_user');
+    if (storedUser) {
+      const userObj = JSON.parse(storedUser);
+      if (userObj.ruolo === 'admin') {
+        setIsAdmin(true);
       }
+    }
 
-      // 2. CONTEGGIO KNOWLEDGE BASE
+    // 2. RECUPERA I CONTEGGI
+    async function fetchDashboardData() {
       const { count: kbCount } = await supabase
         .from('knowledge_base')
         .select('*', { count: 'exact', head: true });
 
-      // 3. CONTEGGIO TICKETS (Se hai una tabella tickets, altrimenti mostrerà 0)
-      const { count: ticketsCount } = await supabase
-        .from('tickets') // Cambia il nome se la tua tabella si chiama in un altro modo
+      // Se non hai ancora la tabella tickets, potrebbe dare errore silenzioso.
+      // Mostrerà semplicemente 0.
+      const { count: ticketsCount, error } = await supabase
+        .from('tickets') 
         .select('*', { count: 'exact', head: true });
 
       setStats({ 
@@ -49,7 +45,6 @@ export default function DashboardHome() {
     fetchDashboardData();
   }, []);
 
-  // 4. FUNZIONE CHE RICHIAMA L'API DI EMBEDDING
   const handleSyncEmbeddings = async () => {
     setIsSyncing(true);
     try {
@@ -73,7 +68,6 @@ export default function DashboardHome() {
       <h1 className="text-3xl font-bold mb-2 text-gray-800">Benvenuto nella Dashboard</h1>
       <p className="text-gray-500 mb-8">Panoramica del sistema e strumenti rapidi.</p>
 
-      {/* Sezione Contatori */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
           <h2 className="text-lg font-semibold text-gray-700">Knowledge Base</h2>
@@ -88,12 +82,9 @@ export default function DashboardHome() {
         </div>
       </div>
 
-      {/* Sezione Azioni Rapide */}
       <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
         <h3 className="text-lg font-bold text-gray-800 mb-4">Azioni Rapide</h3>
         <div className="flex flex-wrap gap-4">
-          
-          {/* Pulsante Navigazione Chat */}
           <Link
             href="/dashboard/chat"
             className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm"
@@ -101,7 +92,7 @@ export default function DashboardHome() {
             💬 Apri Assistente IA
           </Link>
 
-          {/* Pulsante Sincronizzazione (Visibile solo agli Admin) */}
+          {/* Il tasto ora sarà visibile se l'utente nel localStorage ha ruolo 'admin' */}
           {isAdmin && (
             <button
               onClick={handleSyncEmbeddings}
@@ -111,7 +102,6 @@ export default function DashboardHome() {
               {isSyncing ? "⏳ Elaborazione in corso..." : "🧠 Sincronizza Dati IA"}
             </button>
           )}
-
         </div>
       </div>
     </div>
