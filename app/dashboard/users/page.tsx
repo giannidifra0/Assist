@@ -34,9 +34,10 @@ export default function UsersPage() {
 
     if (sortConfig !== null) {
       filterData.sort((a, b) => {
-        let aVal = a[sortConfig.key]; let bVal = b[sortConfig.key];
-        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+        // CORREZIONE TYPESCRIPT: Convertiamo tutto in stringa in modo sicuro prima di comparare
+        const aVal = String(a[sortConfig.key] ?? '').toLowerCase();
+        const bVal = String(b[sortConfig.key] ?? '').toLowerCase();
+
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -152,7 +153,7 @@ export default function UsersPage() {
               {sortedAndFilteredUtenti.map(u => (
                 <tr key={u.id} className="hover:bg-zinc-50/50 transition-colors group">
                   <td className="px-4 py-3">
-                    {/* Colori Funzionali Ripristinati */}
+                    {/* Colori Funzionali */}
                     {u.attivo 
                       ? <span className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 border border-green-200/60 rounded-md text-[11px] font-semibold uppercase tracking-wider">Attivo</span>
                       : <span className="inline-flex items-center px-2 py-1 bg-red-50 text-red-600 border border-red-200/60 rounded-md text-[11px] font-semibold uppercase tracking-wider">Disabilitato</span>
