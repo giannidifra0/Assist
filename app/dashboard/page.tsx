@@ -3,42 +3,38 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
+import { Database, Ticket, Sparkles, RefreshCw, ArrowRight, Users } from 'lucide-react';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 export default function DashboardHome() {
-  const [stats, setStats] = useState({ knowledge: 0, tickets: 0 });
+  const [stats, setStats] = useState({ knowledge: 0, users: 0, tickets: 0 });
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
-    // 1. VERIFICA RUOLO ADMIN (Ora legge dal localStorage, identico alla Sidebar)
+    // Recupera l'utente
     const storedUser = localStorage.getItem('crm_user');
     if (storedUser) {
       const userObj = JSON.parse(storedUser);
-      if (userObj.ruolo === 'admin') {
-        setIsAdmin(true);
-      }
+      setUserName(userObj.nominativo.split(' ')[0]); // Prende solo il nome
+      if (userObj.ruolo === 'admin') setIsAdmin(true);
     }
 
-    // 2. RECUPERA I CONTEGGI
     async function fetchDashboardData() {
-      const { count: kbCount } = await supabase
-        .from('knowledge_base')
-        .select('*', { count: 'exact', head: true });
-
-      // Se non hai ancora la tabella tickets, potrebbe dare errore silenzioso.
-      // Mostrerà semplicemente 0.
-      const { count: ticketsCount, error } = await supabase
-        .from('tickets') 
-        .select('*', { count: 'exact', head: true });
+      // Conteggi usando l'approccio nativo di Supabase
+      const { count: kbCount } = await supabase.from('knowledge_base').select('*', { count: 'exact', head: true });
+      const { count: usersCount } = await supabase.from('utenti').select('*', { count: 'exact', head: true });
+      
+      // Catturiamo l'errore internamente senza far esplodere la Promise
+      const { count: ticketsCount, error: ticketsError } = await supabase.from('tickets').select('*', { count: 'exact', head: true });
 
       setStats({ 
         knowledge: kbCount || 0,
-        tickets: ticketsCount || 0
+        users: usersCount || 0,
+        // Se la tabella tickets non esiste, ticketsError sarà popolato e impostiamo 0
+        tickets: ticketsError ? 0 : (ticketsCount || 0)
       });
     }
 
@@ -50,12 +46,8 @@ export default function DashboardHome() {
     try {
       const response = await fetch('/api/embeddings');
       const data = await response.json();
-      
-      if (data.ERRORE_FATALE) {
-        alert("❌ Errore: " + data.ERRORE_FATALE);
-      } else {
-        alert("✅ " + data.message);
-      }
+      if (data.ERRORE_FATALE) alert("❌ Errore: " + data.ERRORE_FATALE);
+      else alert("✅ Sincronizzazione IA completata con successo.");
     } catch (error) {
       alert("❌ Errore di connessione durante la sincronizzazione.");
     } finally {
@@ -64,46 +56,74 @@ export default function DashboardHome() {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2 text-gray-800">Benvenuto nella Dashboard</h1>
-      <p className="text-gray-500 mb-8">Panoramica del sistema e strumenti rapidi.</p>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
+      
+      {/* Intestazione */}
+      <div>
+        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-900">
+          Bentornato, {userName}
+        </h1>
+        <p className="text-zinc-500 text-sm mt-1">Ecco una panoramica del tuo sistema Z-Assist.</p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
-          <h2 className="text-lg font-semibold text-gray-700">Knowledge Base</h2>
-          <p className="text-4xl font-extrabold text-blue-600 mt-2">{stats.knowledge}</p>
-          <p className="text-sm text-gray-500 mt-1">Schede IA attualmente censite</p>
+      {/* Griglia Statistiche - Ridimensionata per maggiore eleganza */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-5 bg-white rounded-2xl shadow-sm border border-zinc-200/80 flex flex-col justify-center transition-all hover:shadow-md">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Documenti IA</h2>
+            <Database className="w-4 h-4 text-zinc-400" />
+          </div>
+          <p className="text-3xl font-semibold text-zinc-900">{stats.knowledge}</p>
         </div>
 
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
-          <h2 className="text-lg font-semibold text-gray-700">Ticket Censiti</h2>
-          <p className="text-4xl font-extrabold text-orange-500 mt-2">{stats.tickets}</p>
-          <p className="text-sm text-gray-500 mt-1">Totale ticket archiviati nel sistema</p>
+        <div className="p-5 bg-white rounded-2xl shadow-sm border border-zinc-200/80 flex flex-col justify-center transition-all hover:shadow-md">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Ticket Censiti</h2>
+            <Ticket className="w-4 h-4 text-zinc-400" />
+          </div>
+          <p className="text-3xl font-semibold text-zinc-900">{stats.tickets}</p>
+        </div>
+
+        <div className="p-5 bg-white rounded-2xl shadow-sm border border-zinc-200/80 flex flex-col justify-center transition-all hover:shadow-md">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Utenti Attivi</h2>
+            <Users className="w-4 h-4 text-zinc-400" />
+          </div>
+          <p className="text-3xl font-semibold text-zinc-900">{stats.users}</p>
         </div>
       </div>
 
-      <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Azioni Rapide</h3>
-        <div className="flex flex-wrap gap-4">
+      {/* Azioni Rapide - Più compatte e proporzionate */}
+      <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-zinc-200/80">
+        <h3 className="text-sm font-semibold text-zinc-900 mb-4 uppercase tracking-wider">Azioni Rapide</h3>
+        <div className="flex flex-col sm:flex-row gap-3">
           <Link
             href="/dashboard/chat"
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition flex items-center shadow-sm"
+            className="inline-flex items-center justify-between px-5 py-3 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-all shadow-sm group sm:min-w-[240px]"
           >
-            💬 Apri Assistente IA
+            <div className="flex items-center">
+              <Sparkles className="w-4 h-4 mr-2.5 text-zinc-300" />
+              <span className="font-medium text-sm">Apri Assistente IA</span>
+            </div>
+            <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-white transition-colors transform group-hover:translate-x-1" />
           </Link>
 
-          {/* Il tasto ora sarà visibile se l'utente nel localStorage ha ruolo 'admin' */}
           {isAdmin && (
             <button
               onClick={handleSyncEmbeddings}
               disabled={isSyncing}
-              className="px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-between px-5 py-3 bg-zinc-50 border border-zinc-200 text-zinc-900 rounded-xl hover:bg-zinc-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed group sm:min-w-[240px]"
             >
-              {isSyncing ? "⏳ Elaborazione in corso..." : "🧠 Sincronizza Dati IA"}
+              <div className="flex items-center">
+                <RefreshCw className={`w-4 h-4 mr-2.5 text-zinc-500 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span className="font-medium text-sm">{isSyncing ? "Sincronizzazione..." : "Sincronizza Dati IA"}</span>
+              </div>
+              {!isSyncing && <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 transition-colors transform group-hover:translate-x-1" />}
             </button>
           )}
         </div>
       </div>
+      
     </div>
   );
 }
