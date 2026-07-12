@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, BookOpen, Users, LogOut, UserCircle } from 'lucide-react';
+// Abbiamo aggiunto 'Sparkles' all'elenco delle icone importate
+import { LayoutDashboard, BookOpen, Users, LogOut, UserCircle, Sparkles } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
@@ -40,9 +41,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Dashboard
           </Link>
           
-          <Link href="/dashboard/knowledge" className={`flex items-center px-3 py-2 rounded-xl text-sm font-medium transition-all ${pathname.includes('/knowledge') ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] text-gray-900' : 'text-gray-500 hover:bg-black/5 hover:text-gray-900'}`}>
+          <Link href="/dashboard/knowledge" className={`flex items-center px-3 py-2 rounded-xl text-sm font-medium transition-all ${pathname === '/dashboard/knowledge' ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] text-gray-900' : 'text-gray-500 hover:bg-black/5 hover:text-gray-900'}`}>
             <BookOpen className="h-4 w-4 mr-3" strokeWidth={1.5} />
             Knowledge Base
+          </Link>
+
+          {/* NUOVA VOCE: ASSISTENTE IA */}
+          <Link href="/dashboard/chat" className={`flex items-center px-3 py-2 rounded-xl text-sm font-medium transition-all ${pathname.includes('/chat') ? 'bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] text-gray-900' : 'text-gray-500 hover:bg-black/5 hover:text-gray-900'}`}>
+            <Sparkles className="h-4 w-4 mr-3" strokeWidth={1.5} />
+            Assistente IA
           </Link>
 
           {user.ruolo === 'admin' && (
