@@ -1,56 +1,64 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+// Inizializzazione con il NUOVO SDK
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 export async function GET() {
   try {
+    // 1. Recuperiamo solo le schede che non hanno ancora l'embedding (embedding IS NULL)
     const { data: schede, error: fetchError } = await supabase
       .from('knowledge_base')
-      .select('*')
+      .select('id, oggetto, contenuto')
       .is('embedding', null);
 
-    if (fetchError) throw new Error("Errore lettura: " + fetchError.message);
+    if (fetchError) throw new Error("Errore lettura DB: " + fetchError.message);
 
     if (!schede || schede.length === 0) {
-      return NextResponse.json({ message: "Tutte le schede hanno già i vettori IA!" });
+      return NextResponse.json({ message: "Tutte le schede hanno già i vettori IA aggiornati!" });
     }
 
-    const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
     let aggiornate = 0;
 
+    // 2. Ciclo di generazione embedding con il NUOVO SDK
     for (const scheda of schede) {
       const testoDaVettorizzare = `Oggetto: ${scheda.oggetto}\nSoluzione: ${scheda.contenuto}`;
       
-      const result = await embeddingModel.embedContent(testoDaVettorizzare);
-      const vettore = result.embedding.values;
+      // Chiamata API col nuovo SDK
+      const result = await ai.models.embedContent({ 
+        model: "gemini-embedding-001",
+        contents: testoDaVettorizzare 
+      });
 
-      // QUI È DOVE CATTURIAMO IL COLPEVOLE
-      const { data: updatedData, error: updateError } = await supabase
-        .from('knowledge_base')
-        .update({ embedding: vettore })
-        .eq('id', scheda.id)
-        .select(); // Chiediamo a Supabase di confermarci la riga modificata
+      // Recupero sicuro dei valori vettoriali (con optional chaining per sicurezza)
+      const vettore = result.embeddings?.[0]?.values;
 
-      if (updateError) {
-        throw new Error(`Il DB ha bloccato il salvataggio: ${updateError.message}`);
+      if (!vettore) {
+         throw new Error(`Errore IA: Impossibile generare embedding per scheda ${scheda.id}`);
       }
 
-      if (!updatedData || updatedData.length === 0) {
-        throw new Error(`Salvataggio ignorato: Supabase non ti permette di modificare la scheda con ID ${scheda.id}. Possibile blocco RLS o chiave errata.`);
+      // 3. Salvataggio su Supabase
+      const { error: updateError } = await supabase
+        .from('knowledge_base')
+        .update({ embedding: vettore })
+        .eq('id', scheda.id);
+
+      if (updateError) {
+        throw new Error(`Il DB ha bloccato il salvataggio scheda ${scheda.id}: ${updateError.message}`);
       }
         
       aggiornate++;
     }
 
     return NextResponse.json({ 
-      message: `Elaborazione completata con SUCCESSO! L'IA ha letto e salvato ${aggiornate} schede nel database.` 
+      message: `Elaborazione completata! L'IA ha processato e salvato ${aggiornate} nuove schede nel database.` 
     });
 
   } catch (error: any) {
-    // Ora l'errore apparirà gigante nel browser
+    console.error("ERRORE FATALE EMBEDDING:", error);
     return NextResponse.json({ ERRORE_FATALE: error.message }, { status: 500 });
   }
 }

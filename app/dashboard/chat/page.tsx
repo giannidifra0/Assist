@@ -14,16 +14,21 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null); // Aggiunto per gestire l'auto-focus
 
+  // Caricamento cronologia iniziale
   useEffect(() => {
     const saved = localStorage.getItem('crm_chat_history');
     if (saved) {
       setMessages(JSON.parse(saved));
     } else {
-      setMessages([{ role: 'ai', content: 'Ciao! Sono Z-Assist, il tuo assistente IA. Come posso aiutarti con il CRM oggi?' }]);
+      setMessages([{ role: 'ai', content: 'Ciao! Sono Z-Assist, il tuo assistente IA per le soluzioni Zucchetti.\n\nDescrivimi l\'anomalia che stai riscontrando o il messaggio di errore che visualizzi, e ti fornirò subito la procedura di risoluzione e le note di rilascio ufficiali.' }]);
     }
+    // Auto-focus all'apertura
+    setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
+  // Salvataggio automatico e scroll down
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem('crm_chat_history', JSON.stringify(messages));
@@ -40,6 +45,7 @@ export default function ChatPage() {
       const initialMessage: Message[] = [{ role: 'ai', content: 'Cronologia cancellata. Come posso aiutarti ora?' }];
       setMessages(initialMessage);
       localStorage.setItem('crm_chat_history', JSON.stringify(initialMessage));
+      inputRef.current?.focus();
     }
   };
 
@@ -48,7 +54,11 @@ export default function ChatPage() {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
+    
+    // CREIAMO LA CRONOLOGIA COMPLETA DA INVIARE ALL'API
+    const newChatHistory = [...messages, userMessage];
+    
+    setMessages(newChatHistory);
     setInput('');
     setIsLoading(true);
 
@@ -56,20 +66,27 @@ export default function ChatPage() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMessage.content }),
+        // INVIAMO L'INTERO ARRAY DI MESSAGGI, non solo il testo!
+        body: JSON.stringify({ messages: newChatHistory }),
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.reply || "Errore di comunicazione col server.");
+      }
+
       setMessages(prev => [...prev, { role: 'ai', content: data.reply || "Errore di risposta." }]);
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'ai', content: "Errore di connessione al server dell'IA." }]);
+    } catch (error: any) {
+      setMessages(prev => [...prev, { role: 'ai', content: `⚠️ Si è verificato un problema: ${error.message}` }]);
     } finally {
       setIsLoading(false);
+      // Ripristina il focus sull'input terminato il caricamento
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
   return (
-    // L'altezza è passata a dvh (Dynamic Viewport Height) per adattarsi perfettamente ad iOS
     <div className="flex flex-col h-[calc(100dvh-6rem)] md:h-[calc(100dvh-8rem)] bg-white rounded-3xl shadow-sm border border-zinc-200/80 overflow-hidden animate-in fade-in duration-500">
       
       {/* Intestazione Chat */}
@@ -112,10 +129,8 @@ export default function ChatPage() {
                   }`}
               >
                 {msg.role === 'user' ? (
-                  // Testo dell'utente mantenuto invariato
                   <div className="whitespace-pre-wrap">{msg.content}</div>
                 ) : (
-                  // Testo dell'IA processato con Markdown e formattato con i pesi tipografici Apple
                   <ReactMarkdown 
                     components={{
                       p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
@@ -159,6 +174,7 @@ export default function ChatPage() {
       <div className="p-3 md:p-4 bg-white border-t border-zinc-100 flex-shrink-0">
         <form onSubmit={handleSubmit} className="relative flex items-center">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
