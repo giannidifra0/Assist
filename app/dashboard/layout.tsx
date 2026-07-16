@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, BookOpen, Users, LogOut, UserCircle, Sparkles, Menu, X, Settings } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+
+// Inizializziamo il client Supabase per aggiornare lo stato online
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
@@ -16,11 +20,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!storedUser) {
       router.push('/login');
     } else {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+
+      // --- 1. ACCENDIAMO IL PALLINO VERDE ---
+      // Imposta l'utente come online quando entra in dashboard
+      const setOnline = async () => {
+        await supabase
+          .from('utenti')
+          .update({ is_online: true })
+          .eq('id', parsedUser.id); // Assicurati che nel tuo crm_user ci sia il campo 'id'
+      };
+      setOnline();
+
+      // --- 2. GESTIONE CHIUSURA IMPROVVISA (Browser o Tab) ---
+      // Se l'utente chiude la finestra senza fare logout, lo impostiamo offline
+      const handleBeforeUnload = () => {
+        // Usiamo sendBeacon o una chiamata sincrona per assicurarci che venga inviata prima della chiusura
+        navigator.sendBeacon(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/utenti?id=eq.${parsedUser.id}`,
+          JSON.stringify({ is_online: false })
+        );
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
     }
   }, [router]);
 
-  const handleLogout = () => {
+  // --- 3. SPEGNIMENTO AL LOGOUT MANUALE ---
+  const handleLogout = async () => {
+    if (user?.id) {
+      // Impostiamo offline l'utente su Supabase prima di cancellare i dati locali
+      await supabase
+        .from('utenti')
+        .update({ is_online: false })
+        .eq('id', user.id);
+    }
+
     localStorage.removeItem('crm_chat_history');
     localStorage.removeItem('crm_user');
     router.push('/login');

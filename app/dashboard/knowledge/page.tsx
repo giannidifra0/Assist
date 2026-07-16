@@ -6,7 +6,8 @@ import { Search, Edit, Trash2, Plus, X, ArrowUpDown, RefreshCw, CheckCircle2, Ci
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
-type KnowledgeItem = { 
+type KnowledgeItem = {
+  ha_embedding: boolean; 
   id: string; 
   numero_originale: string; 
   riferimento: string;
@@ -44,7 +45,7 @@ export default function KnowledgeBasePage() {
   const [formData, setFormData] = useState(initialForm);
 
   const fetchKnowledge = async () => {
-    const { data, error } = await supabase.from('knowledge_base').select('*');
+    const { data, error } = await supabase.from('knowledge_base_leggera').select('*');
     if (!error && data) setItems(data);
   };
 
@@ -119,7 +120,7 @@ export default function KnowledgeBasePage() {
     setIsLoading(true);
     const payload = { ...formData, embedding: null };
     try {
-      if (editingId) await supabase.from('knowledge_base').update(payload).eq('id', editingId);
+      if (editingId) await supabase.from('knowledge_base_leggera').update(payload).eq('id', editingId);
       else await supabase.from('knowledge_base').insert([payload]);
       await fetchKnowledge();
       setIsFormOpen(false);
@@ -129,7 +130,7 @@ export default function KnowledgeBasePage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Eliminare questo documento?')) return;
-    await supabase.from('knowledge_base').delete().eq('id', id);
+    await supabase.from('knowledge_base_leggera').delete().eq('id', id);
     await fetchKnowledge();
   };
 
@@ -364,8 +365,8 @@ export default function KnowledgeBasePage() {
                     <td className="px-4 py-3 text-zinc-600 text-xs whitespace-nowrap">{item.data_pubblicazione || '-'}</td>
                     
                     <td className="px-4 py-3 text-center">
-                      <div className="flex justify-center tooltip" title={item.embedding ? "Documento appreso dall'IA" : "In attesa di Sincronizzazione"}>
-                        {item.embedding 
+                      <div className="flex justify-center tooltip" title={item.ha_embedding ? "Documento appreso dall'IA" : "In attesa di Sincronizzazione"}>
+                        {item.ha_embedding 
                           ? <CheckCircle2 className="w-4 h-4 text-green-600" strokeWidth={2.5} />
                           : <CircleDashed className="w-4 h-4 text-zinc-300" strokeWidth={2.5} />
                         }

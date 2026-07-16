@@ -9,31 +9,52 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 export async function GET() {
   try {
-    // 1. Recuperiamo solo le schede che non hanno ancora l'embedding (embedding IS NULL)
+    // 1. Recuperiamo le schede espandendo la query a TUTTI i campi di catalogazione
     const { data: schede, error: fetchError } = await supabase
       .from('knowledge_base')
-      .select('id, oggetto, contenuto')
+      .select('id, classe, tipologia, argomento, prodotto_1, prodotto_2, prodotto_3, oggetto, contenuto')
       .is('embedding', null);
 
     if (fetchError) throw new Error("Errore lettura DB: " + fetchError.message);
 
     if (!schede || schede.length === 0) {
-      return NextResponse.json({ message: "Tutte le schede hanno già i vettori IA aggiornati!" });
+      return NextResponse.json({ message: "Tutte le schede hanno già i vettori IA aggiornati a 360°!" });
     }
 
     let aggiornate = 0;
 
     // 2. Ciclo di generazione embedding con il NUOVO SDK
     for (const scheda of schede) {
-      const testoDaVettorizzare = `Oggetto: ${scheda.oggetto}\nSoluzione: ${scheda.contenuto}`;
       
-      // Chiamata API col nuovo SDK
+      // =======================================================================
+      // LA MAGIA: COSTRUZIONE DEL SUPER-VETTORE A 360 GRADI
+      // =======================================================================
+      const elementiTag = [];
+      
+      // Aggiungiamo i metadati solo se esistono realmente nel DB
+      if (scheda.classe) elementiTag.push(`Classe: ${scheda.classe}`);
+      if (scheda.tipologia) elementiTag.push(`Tipologia: ${scheda.tipologia}`);
+      if (scheda.argomento) elementiTag.push(`Argomento: ${scheda.argomento}`);
+      
+      // Compattiamo tutti i prodotti Zucchetti in un'unica stringa pulita
+      const prodotti = [scheda.prodotto_1, scheda.prodotto_2, scheda.prodotto_3].filter(Boolean).join(", ");
+      if (prodotti) elementiTag.push(`Prodotti Coinvolti: ${prodotti}`);
+      
+      // Aggiungiamo il cuore del problema
+      if (scheda.oggetto) elementiTag.push(`Problema/Oggetto: ${scheda.oggetto}`);
+      if (scheda.contenuto) elementiTag.push(`Soluzione Tecnica: ${scheda.contenuto}`);
+
+      // Uniamo tutto in una stringa iper-densa. Esempio di output:
+      // "Classe: Bug | Tipologia: Fiscale | Prodotti Coinvolti: Infinity, HR | Problema: ... | Soluzione: ..."
+      const testoDaVettorizzare = elementiTag.join(' | ');
+      // =======================================================================
+
+      // Chiamata API col nuovo SDK per tradurre il super-testo in numeri
       const result = await ai.models.embedContent({ 
         model: "gemini-embedding-001",
         contents: testoDaVettorizzare 
       });
 
-      // Recupero sicuro dei valori vettoriali (con optional chaining per sicurezza)
       const vettore = result.embeddings?.[0]?.values;
 
       if (!vettore) {
@@ -54,7 +75,7 @@ export async function GET() {
     }
 
     return NextResponse.json({ 
-      message: `Elaborazione completata! L'IA ha processato e salvato ${aggiornate} nuove schede nel database.` 
+      message: `Elaborazione completata! L'IA ha processato a 360° e salvato ${aggiornate} nuove schede nel database.` 
     });
 
   } catch (error: any) {
