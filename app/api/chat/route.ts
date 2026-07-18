@@ -16,7 +16,6 @@ export async function POST(req: Request) {
 
     // 1. Estrazione del prompt
     const userMessages = messages.filter((m: any) => m.role === 'user').map((m: any) => m.content);
-    // FIX 1: Usiamo SOLO l'ultima domanda per la ricerca nel database per avere una precisione matematica assoluta
     const latestPrompt = userMessages[userMessages.length - 1];
 
     if (!latestPrompt) {
@@ -24,21 +23,20 @@ export async function POST(req: Request) {
     }
 
     // =========================================================================
-    // 2. EMBEDDING E RICERCA CON RETRY INTEGRATO
+    // 2. EMBEDDING E RICERCA (ALTA PRECISIONE)
     // =========================================================================
     let queryEmbedding: any = null;
     
-    // FIX 2: Applichiamo il Retry anche alla generazione dell'Embedding
     for (let i = 0; i < 2; i++) {
       try {
         const embeddingResult = await ai.models.embedContent({ 
             model: "gemini-embedding-001",
-            contents: latestPrompt // Ricerca laser solo sull'ultima domanda
+            contents: latestPrompt 
         });
         queryEmbedding = embeddingResult.embeddings?.[0]?.values;
         if (queryEmbedding) break;
       } catch (embedError) {
-        if (i < 1) await delay(1500); // Aspetta 1.5s e riprova se Google è intasato
+        if (i < 1) await delay(1500); 
         else throw new Error("Servizio di Embedding non raggiungibile.");
       }
     }
@@ -47,26 +45,48 @@ export async function POST(req: Request) {
       throw new Error("Errore durante la generazione dei vettori di ricerca.");
     }
 
-    // FIX 3: Abbassata la soglia da 0.3 a 0.25 per catturare anche le schede con sinonimi
-    const { data: schede, error: dbError } = await supabase.rpc('match_knowledge_base', {
-      query_embedding: queryEmbedding,
-      match_threshold: 0.25, 
-      match_count: 5        
-    });
+    // AUMENTATA LA SOGLIA DI PRECISIONE A 0.38 PER EVITARE ALLUCINAZIONI
+    const [kbResponse, docResponse] = await Promise.all([
+      supabase.rpc('match_knowledge_base', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.38, 
+        match_count: 4        
+      }),
+      supabase.rpc('match_documenti_chunk', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.38, 
+        match_count: 4        
+      })
+    ]);
 
-    if (dbError) throw new Error("Errore Supabase RPC: " + dbError.message);
+    if (kbResponse.error) throw new Error("Errore Supabase KB: " + kbResponse.error.message);
+    if (docResponse.error) throw new Error("Errore Supabase Manuali: " + docResponse.error.message);
 
     let contesto = "";
-    if (schede && schede.length > 0) {
-      contesto = schede.map((s: any) => 
-        `--- FONTE ID: ${s.numero_originale || 'N/A'} ---\nRiferimento: ${s.riferimento || 'N/A'}\nOggetto: ${s.oggetto}\nTipologia: ${s.tipologia}\nContenuto/Soluzione:\n${s.contenuto}\n-------------------`
+
+    // Aggiungiamo i risultati dei Ticket / Knowledge Base
+    if (kbResponse.data && kbResponse.data.length > 0) {
+      contesto += "=== TICKET E KNOWLEDGE BASE ===\n\n";
+      contesto += kbResponse.data.map((s: any) => 
+        `--- FONTE KB ID: ${s.numero_originale || 'N/A'} ---\nRiferimento: ${s.riferimento || 'N/A'}\nOggetto: ${s.oggetto}\nTipologia: ${s.tipologia}\nContenuto/Soluzione:\n${s.contenuto}\n-------------------`
       ).join('\n\n');
-    } else {
-      contesto = "Nessun dato pertinente trovato nella Knowledge Base per questa specifica richiesta.";
+      contesto += "\n\n";
+    }
+
+    // Aggiungiamo i risultati dei Manuali PDF
+    if (docResponse.data && docResponse.data.length > 0) {
+      contesto += "=== MANUALI PDF UFFICIALI ===\n\n";
+      contesto += docResponse.data.map((d: any) => 
+        `--- FONTE MANUALE: ${d.titolo} ---\nProdotto: ${d.prodotto}\nCapitolo: ${d.capitolo} (Pagina: ${d.pagina})\nIstruzioni:\n${d.testo}\n-------------------`
+      ).join('\n\n');
+    }
+
+    if (!contesto.trim()) {
+      contesto = "Nessun dato pertinente trovato nei database (né in KB né nei Manuali) per questa specifica richiesta.";
     }
 
     // =========================================================================
-    // 3. SYSTEM PROMPT
+    // 3. SYSTEM PROMPT (AGGIORNATO PER LE FONTI DOPPIE)
     // =========================================================================
     const systemInstruction = `
       Sei un Senior Technical Support Engineer esperto degli applicativi Zucchetti per il CRM aziendale.
@@ -74,10 +94,13 @@ export async function POST(req: Request) {
 
       REGOLE DI ASSISTENZA TASSATIVE:
       1. FORNISCI SUBITO LA SOLUZIONE: Rispondi immediatamente in modo esaustivo. NON chiedere la versione all'utente.
-      2. ALLERTA VERSIONI ZUCCHETTI: Analizza sempre la sezione "SOLUZIONE" del contesto. Se trovi indicazioni su versioni specifiche (es. "Corretto a partire da versione 07.07.00"), inserisci alla fine un blocco evidente. Esempio: "⚠️ NOTA SULLA VERSIONE: Zucchetti ha corretto questa anomalia a partire dalla versione X.X.X".
-      3. STRUTTURA: Usa elenchi puntati per i passaggi risolutivi e metti in grassetto i menu.
+      2. ALLERTA VERSIONI ZUCCHETTI: Se trovi indicazioni su versioni specifiche, inserisci un blocco: "⚠️ NOTA SULLA VERSIONE: Zucchetti ha corretto questa anomalia a partire dalla versione X.X.X".
+      3. STRUTTURA: Usa elenchi puntati e metti in grassetto i menu.
       4. AFFIDABILITÀ: Se la risposta non è nel contesto, dichiara apertamente di non avere le informazioni. Non inventare nulla.
-      5. CITAZIONE DELLE FONTI: Alla fine della tua risposta, è TASSATIVO aggiungere una riga che elenchi l'ID delle fonti da cui hai preso la soluzione. Non usare MAI termini inventati come "Scheda 1". Devi scrivere esattamente: "Fonti utilizzate: [inserisci qui i valori del campo FONTE ID del contesto]".
+      5. CITAZIONE DELLE FONTI DOPPIE: È TASSATIVO citare la fonte esatta alla fine. 
+         - Se usi un Ticket della KB, scrivi: "Fonti utilizzate: [Inserisci FONTE KB ID]".
+         - Se usi un Manuale, scrivi: "Fonti utilizzate: [Inserisci FONTE MANUALE, Pag. X]".
+         Se usi entrambi, citali entrambi separati da virgola.
 
       <contesto>
       ${contesto}
@@ -108,7 +131,7 @@ export async function POST(req: Request) {
     }
 
     // =========================================================================
-    // 5. GENERAZIONE CON RETRY INTELLIGENTE E TELEMETRIA
+    // 5. GENERAZIONE E TELEMETRIA
     // =========================================================================
     const chat = ai.chats.create({
         model: "gemini-3.5-flash",
@@ -137,7 +160,6 @@ export async function POST(req: Request) {
         
         textResponse = chatResult?.text || "";
 
-        // Salvataggio Telemetria
         const usage = chatResult?.usageMetadata;
         if (usage) {
           await supabase.from('telemetria_ia').insert([{
