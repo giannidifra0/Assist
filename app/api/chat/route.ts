@@ -2,30 +2,35 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+// Inizializzazione sicura per il backend
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Inizializzazione con il NUOVO SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-
-// Utility per far aspettare il server tra un tentativo e l'altro
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
+    // 1. VALIDAZIONE RIGOROSA DELL'INPUT
+    const body = await req.json().catch(() => ({}));
+    const messages = body.messages;
 
-    // 1. Estrazione del prompt
-    const userMessages = messages.filter((m: any) => m.role === 'user').map((m: any) => m.content);
-    const latestPrompt = userMessages[userMessages.length - 1];
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json({ reply: "Formato conversazione non valido." }, { status: 400 });
+    }
+
+    const userMessages = messages.filter((m: any) => m.role === 'user' && m.content?.trim());
+    const latestPrompt = userMessages.length > 0 ? userMessages[userMessages.length - 1].content.trim() : null;
 
     if (!latestPrompt) {
-      return NextResponse.json({ reply: "Messaggio non valido." }, { status: 400 });
+      return NextResponse.json({ reply: "Nessun prompt valido fornito." }, { status: 400 });
     }
 
     // =========================================================================
-    // 2. EMBEDDING E RICERCA (ALTA PRECISIONE)
+    // 2. EMBEDDING (CON RETRY ROBUSTO)
     // =========================================================================
-    let queryEmbedding: any = null;
+    let queryEmbedding: number[] | null = null;
     
     for (let i = 0; i < 2; i++) {
       try {
@@ -33,60 +38,73 @@ export async function POST(req: Request) {
             model: "gemini-embedding-001",
             contents: latestPrompt 
         });
-        queryEmbedding = embeddingResult.embeddings?.[0]?.values;
-        if (queryEmbedding) break;
+        
+        if (embeddingResult.embeddings?.[0]?.values) {
+          queryEmbedding = embeddingResult.embeddings[0].values;
+          break;
+        }
       } catch (embedError) {
         if (i < 1) await delay(1500); 
-        else throw new Error("Servizio di Embedding non raggiungibile.");
+        else console.error("Tentativi embedding esauriti:", embedError);
       }
     }
 
     if (!queryEmbedding) {
-      throw new Error("Errore durante la generazione dei vettori di ricerca.");
+      throw new Error("Impossibile contattare il servizio di Embedding IA. Riprovare.");
     }
 
-    // AUMENTATA LA SOGLIA DI PRECISIONE A 0.38 PER EVITARE ALLUCINAZIONI
-    const [kbResponse, docResponse] = await Promise.all([
-      supabase.rpc('match_knowledge_base', {
+    // =========================================================================
+    // 3. RICERCA RAG (TOLLERANTE AI GUASTI PARZIALI)
+    // =========================================================================
+    let kbData: any[] = [];
+    let docData: any[] = [];
+
+    // Cerchiamo nella Knowledge Base
+    try {
+      const kbResponse = await supabase.rpc('match_knowledge_base', {
         query_embedding: queryEmbedding,
         match_threshold: 0.38, 
         match_count: 4        
-      }),
-      supabase.rpc('match_documenti_chunk', {
+      });
+      if (!kbResponse.error && kbResponse.data) kbData = kbResponse.data;
+      else console.error("Warning: Fallimento RPC Knowledge Base:", kbResponse.error?.message);
+    } catch (e) { console.error("Eccezione su ricerca KB:", e); }
+
+    // Cerchiamo nei Manuali PDF
+    try {
+      const docResponse = await supabase.rpc('match_documenti_chunk', {
         query_embedding: queryEmbedding,
         match_threshold: 0.38, 
         match_count: 4        
-      })
-    ]);
+      });
+      if (!docResponse.error && docResponse.data) docData = docResponse.data;
+      else console.error("Warning: Fallimento RPC Documenti:", docResponse.error?.message);
+    } catch (e) { console.error("Eccezione su ricerca Documenti:", e); }
 
-    if (kbResponse.error) throw new Error("Errore Supabase KB: " + kbResponse.error.message);
-    if (docResponse.error) throw new Error("Errore Supabase Manuali: " + docResponse.error.message);
-
+    // Costruzione dinamica e sicura del contesto
     let contesto = "";
 
-    // Aggiungiamo i risultati dei Ticket / Knowledge Base
-    if (kbResponse.data && kbResponse.data.length > 0) {
+    if (kbData.length > 0) {
       contesto += "=== TICKET E KNOWLEDGE BASE ===\n\n";
-      contesto += kbResponse.data.map((s: any) => 
-        `--- FONTE KB ID: ${s.numero_originale || 'N/A'} ---\nRiferimento: ${s.riferimento || 'N/A'}\nOggetto: ${s.oggetto}\nTipologia: ${s.tipologia}\nContenuto/Soluzione:\n${s.contenuto}\n-------------------`
+      contesto += kbData.map((s: any) => 
+        `--- FONTE KB ID: ${s.numero_originale || 'Sconosciuto'} ---\nRiferimento: ${s.riferimento || 'N/A'}\nOggetto: ${s.oggetto || 'N/A'}\nTipologia: ${s.tipologia || 'N/A'}\nContenuto/Soluzione:\n${s.contenuto || 'Dato mancante'}\n-------------------`
       ).join('\n\n');
       contesto += "\n\n";
     }
 
-    // Aggiungiamo i risultati dei Manuali PDF
-    if (docResponse.data && docResponse.data.length > 0) {
+    if (docData.length > 0) {
       contesto += "=== MANUALI PDF UFFICIALI ===\n\n";
-      contesto += docResponse.data.map((d: any) => 
-        `--- FONTE MANUALE: ${d.titolo} ---\nProdotto: ${d.prodotto}\nCapitolo: ${d.capitolo} (Pagina: ${d.pagina})\nIstruzioni:\n${d.testo}\n-------------------`
+      contesto += docData.map((d: any) => 
+        `--- FONTE MANUALE: ${d.titolo || 'Generico'} ---\nProdotto: ${d.prodotto || 'N/A'}\nCapitolo: ${d.capitolo || 'N/A'} (Pagina: ${d.pagina || 'N/A'})\nIstruzioni:\n${d.testo || 'Dato mancante'}\n-------------------`
       ).join('\n\n');
     }
 
     if (!contesto.trim()) {
-      contesto = "Nessun dato pertinente trovato nei database (né in KB né nei Manuali) per questa specifica richiesta.";
+      contesto = "Nessun dato pertinente trovato nei database (né in KB né nei Manuali) per questa specifica richiesta. Invita l'utente a fornire più dettagli tecnici.";
     }
 
     // =========================================================================
-    // 3. SYSTEM PROMPT (AGGIORNATO PER LE FONTI DOPPIE)
+    // 4. SYSTEM PROMPT
     // =========================================================================
     const systemInstruction = `
       Sei un Senior Technical Support Engineer esperto degli applicativi Zucchetti per il CRM aziendale.
@@ -108,30 +126,31 @@ export async function POST(req: Request) {
     `;
 
     // =========================================================================
-    // 4. NORMALIZZAZIONE MEMORIA
+    // 5. RIPARAZIONE MEMORIA (Gemini Strict Pattern)
     // =========================================================================
-    const validMessages = messages.filter((m: any) => !m.content.includes("⚠️"));
-    const rawHistory = validMessages.slice(0, -1);
-
+    const rawHistory = messages.slice(0, -1).filter((m: any) => m.content && !m.content.includes("⚠️"));
     const geminiHistory: any[] = [];
-    let nextExpectedRole = 'user';
+    let nextExpectedRole = 'user'; // Gemini esige TASSATIVAMENTE che la history inizi con 'user'
 
     for (const msg of rawHistory) {
-      if (!msg.content.trim()) continue;
+      const content = msg.content.trim();
+      if (!content) continue;
       
       const mappedRole = msg.role === 'ai' ? 'model' : 'user';
+      
       if (mappedRole === nextExpectedRole) {
-        geminiHistory.push({ role: mappedRole, parts: [{ text: msg.content }] });
+        geminiHistory.push({ role: mappedRole, parts: [{ text: content }] });
         nextExpectedRole = mappedRole === 'user' ? 'model' : 'user';
       }
     }
 
+    // Se la history finisce con 'user', lo togliamo perché il nuovo prompt copre l'ultimo turno
     if (geminiHistory.length > 0 && geminiHistory[geminiHistory.length - 1].role === 'user') {
       geminiHistory.pop();
     }
 
     // =========================================================================
-    // 5. GENERAZIONE E TELEMETRIA
+    // 6. GENERAZIONE CON TIMEOUT SICURO E TELEMETRIA SGANCATA
     // =========================================================================
     const chat = ai.chats.create({
         model: "gemini-3.5-flash",
@@ -146,57 +165,56 @@ export async function POST(req: Request) {
     
     let textResponse = "";
     let lastError = null;
+    let usageStats = null;
     const MAX_RETRIES = 2; 
 
     for (let i = 0; i < MAX_RETRIES; i++) {
       try {
         const chatPromise = chat.sendMessage({ message: latestPrompt });
-        
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error("TIMEOUT_SUPERATO")), 35000);
         });
 
         const chatResult = await Promise.race([chatPromise, timeoutPromise]) as any;
-        
         textResponse = chatResult?.text || "";
+        usageStats = chatResult?.usageMetadata;
 
-        const usage = chatResult?.usageMetadata;
-        if (usage) {
-          await supabase.from('telemetria_ia').insert([{
-            prompt_tokens: usage.promptTokenCount || 0,
-            risposta_tokens: usage.candidatesTokenCount || 0,
-            totale_tokens: usage.totalTokenCount || 0,
-            successo: true
-          }]);
-        }
-
-        break; 
+        break; // Successo, usciamo dal ciclo
         
       } catch (error: any) {
         const errMessage = error?.message || JSON.stringify(error);
-        console.warn(`[Tentativo ${i + 1}/${MAX_RETRIES}] Fallito:`, errMessage);
+        console.warn(`[Gemini Attempt ${i + 1}/${MAX_RETRIES}] Fallito:`, errMessage);
         lastError = error;
 
-        if (errMessage.includes('404') || errMessage.includes('API key') || errMessage.includes('NOT_FOUND')) {
-          break;
-        }
-
-        if (i < MAX_RETRIES - 1) {
-          await delay(2000);
-        }
+        // Se l'errore è critico e non recuperabile, interrompiamo subito
+        if (errMessage.includes('404') || errMessage.includes('API key')) break;
+        if (i < MAX_RETRIES - 1) await delay(2000);
       }
     }
 
     if (!textResponse) {
-       throw lastError;
+       throw lastError || new Error("Risposta vuota generata dall'IA.");
+    }
+
+    // Esecuzione sganciata della Telemetria (Fire-and-Forget)
+    // Non rallenta l'utente e non genera errori 500 se fallisce l'insert
+    if (usageStats) {
+      supabase.from('telemetria_ia').insert([{
+        prompt_tokens: usageStats.promptTokenCount || 0,
+        risposta_tokens: usageStats.candidatesTokenCount || 0,
+        totale_tokens: usageStats.totalTokenCount || 0,
+        successo: true
+      }]).then(({ error }) => {
+        if (error) console.error("Errore silente salvataggio telemetria:", error.message);
+      });
     }
 
     return NextResponse.json({ reply: textResponse });
 
   } catch (error: any) {
-    console.error("Errore chat IA definitivo:", error?.message || error);
+    console.error("Errore Critico API Chat:", error?.message || error);
     return NextResponse.json({ 
-      reply: "⚠️ I server di Google sono saturi o il tempo di attesa è scaduto. Riprova tra un istante." 
+      reply: "⚠️ I server o il database non sono riusciti a processare la richiesta. Riprova tra un istante." 
     }, { status: 500 });
   }
 }

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Forza Tailwind v4 a usare la strategia a classi per la Night Mode */
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

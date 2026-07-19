@@ -7,19 +7,11 @@ import { Search, Edit, Trash2, Plus, X, ArrowUpDown, RefreshCw, CheckCircle2, Ci
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 type KnowledgeItem = {
-  ha_embedding: boolean; 
-  id: string; 
-  numero_originale: string; 
-  riferimento: string;
-  classe: string; 
-  oggetto: string; 
-  tipologia: string; 
-  argomento: string; 
-  contenuto: string; 
-  data_pubblicazione: string;
+  ha_embedding: boolean; id: string; numero_originale: string; riferimento: string;
+  classe: string; oggetto: string; tipologia: string; argomento: string; 
+  contenuto: string; data_pubblicazione: string;
   prodotto_1: string; prodotto_2: string; prodotto_3: string; 
-  prodotto_4: string; prodotto_5: string; prodotto_6: string;
-  embedding: any; 
+  prodotto_4: string; prodotto_5: string; prodotto_6: string; embedding: any; 
 };
 
 export default function KnowledgeBasePage() {
@@ -30,15 +22,13 @@ export default function KnowledgeBasePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Stati per Filtri e Ordinamento
   const [sortConfig, setSortConfig] = useState<{ key: keyof KnowledgeItem; direction: 'asc' | 'desc' } | null>(null);
   const [rowLimit, setRowLimit] = useState<number | string>(100);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [activeFilterCol, setActiveFilterCol] = useState<string | null>(null);
 
   const initialForm = { 
-    numero_originale: '', riferimento: '', data_pubblicazione: '', 
-    classe: '', tipologia: '', argomento: '', 
+    numero_originale: '', riferimento: '', data_pubblicazione: '', classe: '', tipologia: '', argomento: '', 
     prodotto_1: '', prodotto_2: '', prodotto_3: '', prodotto_4: '', prodotto_5: '', prodotto_6: '',
     oggetto: '', contenuto: '' 
   };
@@ -48,7 +38,6 @@ export default function KnowledgeBasePage() {
     const { data, error } = await supabase.from('knowledge_base_leggera').select('*');
     if (!error && data) setItems(data);
   };
-
   useEffect(() => { fetchKnowledge(); }, []);
 
   const handleSyncEmbeddings = async () => {
@@ -57,22 +46,12 @@ export default function KnowledgeBasePage() {
       const response = await fetch('/api/embeddings');
       const data = await response.json();
       if (data.ERRORE_FATALE) alert("❌ Errore: " + data.ERRORE_FATALE);
-      else {
-        alert("✅ Sincronizzazione IA completata con successo.");
-        fetchKnowledge();
-      }
-    } catch (error) {
-      alert("❌ Errore di connessione durante la sincronizzazione.");
-    } finally {
-      setIsSyncing(false);
-    }
+      else { alert("✅ Sincronizzazione IA completata."); fetchKnowledge(); }
+    } catch (error) { alert("❌ Errore di connessione."); } finally { setIsSyncing(false); }
   };
 
-  // Logica avanzata di Filtraggio e Ordinamento
   const processedItems = useMemo(() => {
     let result = items;
-
-    // 1. Filtro Globale
     if (searchTerm) {
       result = result.filter(item => 
         (item.oggetto?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
@@ -80,17 +59,13 @@ export default function KnowledgeBasePage() {
         (item.numero_originale?.toLowerCase() || '').includes(searchTerm.toLowerCase())
       );
     }
-
-    // 2. Filtri per Colonna (LIKE)
     result = result.filter(item => {
       return Object.entries(columnFilters).every(([key, filterValue]) => {
-        if (!filterValue) return true; // Se il filtro è vuoto, passa
+        if (!filterValue) return true; 
         const itemValue = String((item as any)[key] || '').toLowerCase();
         return itemValue.includes(filterValue.toLowerCase());
       });
     });
-
-    // 3. Ordinamento
     if (sortConfig !== null) {
       result.sort((a, b) => {
         const aVal = String(a[sortConfig.key] ?? '').toLowerCase();
@@ -100,12 +75,7 @@ export default function KnowledgeBasePage() {
         return 0;
       });
     }
-
-    // 4. Limite Righe
-    if (rowLimit !== '' && Number(rowLimit) > 0) {
-      return result.slice(0, Number(rowLimit));
-    }
-
+    if (rowLimit !== '' && Number(rowLimit) > 0) return result.slice(0, Number(rowLimit));
     return result;
   }, [items, searchTerm, sortConfig, columnFilters, rowLimit]);
 
@@ -124,8 +94,7 @@ export default function KnowledgeBasePage() {
       else await supabase.from('knowledge_base').insert([payload]);
       await fetchKnowledge();
       setIsFormOpen(false);
-    } catch (error: any) { alert("Errore: " + error.message); } 
-    finally { setIsLoading(false); }
+    } catch (error: any) { alert("Errore: " + error.message); } finally { setIsLoading(false); }
   };
 
   const handleDelete = async (id: string) => {
@@ -152,48 +121,26 @@ export default function KnowledgeBasePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Componente Intestazione Colonna con Filtro Integrato
   const SortHeader = ({ label, sortKey, sticky = false, position = '' }: { label: string, sortKey: keyof KnowledgeItem, sticky?: boolean, position?: string }) => {
     const isFiltering = activeFilterCol === sortKey;
     const filterValue = columnFilters[sortKey] || '';
-
     return (
-      <th className={`px-4 py-3 border-b border-zinc-100 bg-white whitespace-nowrap align-top
-        ${sticky ? `sticky ${position} shadow-[5px_0_15px_-3px_rgba(0,0,0,0.05)] z-20` : 'z-10'}
+      <th className={`px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/50 whitespace-nowrap align-top
+        ${sticky ? `sticky ${position} shadow-[5px_0_15px_-3px_rgba(0,0,0,0.05)] dark:shadow-[5px_0_15px_-3px_rgba(0,0,0,0.5)] z-20` : 'z-10'}
       `}>
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <div 
-              className="flex items-center text-[11px] font-semibold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-800 transition-colors"
-              onClick={() => requestSort(sortKey)}
-            >
-              {label} <ArrowUpDown className="ml-1 h-3 w-3" />
+            <div className="flex items-center text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors" onClick={() => requestSort(sortKey)}>
+              {label} <ArrowUpDown className="ml-1.5 h-3 w-3" />
             </div>
-            <button 
-              onClick={() => setActiveFilterCol(isFiltering ? null : sortKey)}
-              className={`ml-3 p-1 rounded transition-colors ${filterValue || isFiltering ? 'text-zinc-900 bg-zinc-100' : 'text-zinc-300 hover:text-zinc-600 hover:bg-zinc-50'}`}
-              title="Filtra questa colonna"
-            >
+            <button onClick={() => setActiveFilterCol(isFiltering ? null : sortKey)} className={`ml-3 p-1 rounded-md transition-colors ${filterValue || isFiltering ? 'text-zinc-900 dark:text-white bg-white dark:bg-zinc-800 shadow-sm border border-zinc-200 dark:border-zinc-700' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800'}`} title="Filtra">
               <Filter className="w-3 h-3" />
             </button>
           </div>
-          
           {isFiltering && (
-            <div className="relative mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
-              <input 
-                type="text" 
-                autoFocus
-                placeholder="Cerca..."
-                value={filterValue}
-                onChange={(e) => setColumnFilters(prev => ({...prev, [sortKey]: e.target.value}))}
-                className="w-full pl-2 pr-6 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-900 transition-all shadow-sm"
-              />
-              <button 
-                onClick={() => { setColumnFilters(prev => ({...prev, [sortKey]: ''})); setActiveFilterCol(null); }} 
-                className="absolute right-1 top-1.5 text-zinc-400 hover:text-zinc-700"
-              >
-                <X className="w-3 h-3" />
-              </button>
+            <div className="relative mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+              <input type="text" autoFocus placeholder="Filtra..." value={filterValue} onChange={(e) => setColumnFilters(prev => ({...prev, [sortKey]: e.target.value}))} className="w-full pl-3 pr-7 py-2 text-xs bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 dark:text-white transition-all shadow-sm font-medium" />
+              <button onClick={() => { setColumnFilters(prev => ({...prev, [sortKey]: ''})); setActiveFilterCol(null); }} className="absolute right-1.5 top-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"><X className="w-3.5 h-3.5" /></button>
             </div>
           )}
         </div>
@@ -203,180 +150,141 @@ export default function KnowledgeBasePage() {
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 w-full">
-      
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-900">Knowledge Base</h1>
-          <p className="text-zinc-500 text-sm mt-1">Archivio documenti, anomalie e training dell'Intelligenza Artificiale.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Knowledge Base</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1 font-medium">Archivio documenti, anomalie e training dell'Intelligenza Artificiale.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          <button 
-            onClick={handleSyncEmbeddings} 
-            disabled={isSyncing}
-            className="flex items-center justify-center px-4 py-2.5 bg-white border border-zinc-200 text-zinc-900 text-sm font-medium rounded-xl hover:bg-zinc-50 transition-all shadow-sm disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} /> 
-            {isSyncing ? 'Sincronizzazione...' : 'Sincronizza IA'}
+          <button onClick={handleSyncEmbeddings} disabled={isSyncing} className="flex items-center justify-center px-5 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white text-sm font-bold rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm hover:shadow disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} /> Sincronizza IA
           </button>
-          <button 
-            onClick={() => openForm()} 
-            className="flex items-center justify-center px-5 py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-xl hover:bg-zinc-800 transition-all shadow-sm"
-          >
-            <Plus className="w-4 h-4 mr-2" /> Aggiungi Documento
+          <button onClick={() => openForm()} className="flex items-center justify-center px-6 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-bold rounded-2xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5">
+            <Plus className="w-5 h-5 mr-2" /> Nuovo Documento
           </button>
         </div>
       </div>
 
       {isFormOpen && (
-        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-zinc-200/80">
-          <div className="flex justify-between items-center mb-8 border-b border-zinc-100 pb-4">
-            <h2 className="text-xl font-semibold tracking-tight text-zinc-900">{editingId ? 'Modifica Documento' : 'Nuovo Documento'}</h2>
-            <button onClick={() => setIsFormOpen(false)} className="p-2 bg-zinc-50 text-zinc-400 hover:text-zinc-900 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+        <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] shadow-xl border border-zinc-200/60 dark:border-zinc-800/60 animate-in slide-in-from-top-4 duration-300 relative overflow-hidden">
+          <div className="flex justify-between items-center mb-8 border-b border-zinc-100 dark:border-zinc-800 pb-5">
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-white">{editingId ? 'Modifica Documento' : 'Nuovo Documento'}</h2>
+            <button onClick={() => setIsFormOpen(false)} className="p-2 bg-zinc-50 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full transition-colors"><X className="w-5 h-5" /></button>
           </div>
           
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900 mb-4 uppercase tracking-wider flex items-center">
-                <span className="w-2 h-2 rounded-full bg-zinc-300 mr-2"></span> Dati Identificativi
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div><label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">numero_originale</label><input type="text" value={formData.numero_originale} onChange={e => setFormData({...formData, numero_originale: e.target.value})} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none text-sm" /></div>
-                <div><label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">riferimento</label><input type="text" value={formData.riferimento} onChange={e => setFormData({...formData, riferimento: e.target.value})} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none text-sm" /></div>
-                <div><label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">data_pubblicazione</label><input type="date" value={formData.data_pubblicazione} onChange={e => setFormData({...formData, data_pubblicazione: e.target.value})} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none text-sm" /></div>
+              <h3 className="text-xs font-bold text-zinc-900 dark:text-white mb-5 uppercase tracking-widest flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-2.5"></span> Dati Identificativi</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-1.5"><label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Codice Origine</label><input type="text" value={formData.numero_originale} onChange={e => setFormData({...formData, numero_originale: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-sm font-medium dark:text-white transition-all" /></div>
+                <div className="space-y-1.5"><label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Riferimento</label><input type="text" value={formData.riferimento} onChange={e => setFormData({...formData, riferimento: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-sm font-medium dark:text-white transition-all" /></div>
+                <div className="space-y-1.5"><label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Data Pubblicazione</label><input type="date" value={formData.data_pubblicazione} onChange={e => setFormData({...formData, data_pubblicazione: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-sm font-medium dark:text-white [color-scheme:light] dark:[color-scheme:dark] transition-all" /></div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900 mb-4 uppercase tracking-wider flex items-center">
-                <span className="w-2 h-2 rounded-full bg-zinc-300 mr-2"></span> Classificazione
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div><label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">classe</label><input type="text" value={formData.classe} onChange={e => setFormData({...formData, classe: e.target.value})} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none text-sm" /></div>
-                <div><label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">tipologia</label><input type="text" value={formData.tipologia} onChange={e => setFormData({...formData, tipologia: e.target.value})} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none text-sm" /></div>
-                <div><label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">argomento</label><input type="text" value={formData.argomento} onChange={e => setFormData({...formData, argomento: e.target.value})} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none text-sm" /></div>
+              <h3 className="text-xs font-bold text-zinc-900 dark:text-white mb-5 uppercase tracking-widest flex items-center"><span className="w-2 h-2 rounded-full bg-purple-500 mr-2.5"></span> Classificazione</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-1.5"><label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Classe</label><input type="text" value={formData.classe} onChange={e => setFormData({...formData, classe: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-sm font-medium dark:text-white transition-all" /></div>
+                <div className="space-y-1.5"><label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Tipologia</label><input type="text" value={formData.tipologia} onChange={e => setFormData({...formData, tipologia: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-sm font-medium dark:text-white transition-all" /></div>
+                <div className="space-y-1.5"><label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Argomento</label><input type="text" value={formData.argomento} onChange={e => setFormData({...formData, argomento: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-sm font-medium dark:text-white transition-all" /></div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900 mb-4 uppercase tracking-wider flex items-center">
-                <span className="w-2 h-2 rounded-full bg-zinc-300 mr-2"></span> Prodotti Coinvolti
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <h3 className="text-xs font-bold text-zinc-900 dark:text-white mb-5 uppercase tracking-widest flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-2.5"></span> Prodotti Coinvolti</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {[1,2,3,4,5,6].map(num => (
-                  <div key={num}>
-                    <label className="block text-[10px] font-medium text-zinc-400 mb-1.5 uppercase">prodotto_{num}</label>
-                    <input type="text" value={(formData as any)[`prodotto_${num}`]} onChange={e => setFormData({...formData, [`prodotto_${num}`]: e.target.value})} className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-1 focus:ring-zinc-900 outline-none text-xs" />
+                  <div key={num} className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Slot {num}</label>
+                    <input type="text" value={(formData as any)[`prodotto_${num}`]} onChange={e => setFormData({...formData, [`prodotto_${num}`]: e.target.value})} className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-xs font-medium dark:text-white transition-all" />
                   </div>
                 ))}
               </div>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900 mb-4 uppercase tracking-wider flex items-center">
-                <span className="w-2 h-2 rounded-full bg-zinc-300 mr-2"></span> Contenuto Documento
-              </h3>
-              <div className="space-y-5">
-                <div><label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">oggetto *</label><input type="text" value={formData.oggetto} onChange={e => setFormData({...formData, oggetto: e.target.value})} className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none text-sm font-medium" required /></div>
-                <div><label className="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">contenuto *</label><textarea value={formData.contenuto} onChange={e => setFormData({...formData, contenuto: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-1 focus:ring-zinc-900 outline-none text-sm min-h-[180px] leading-relaxed" required /></div>
+              <h3 className="text-xs font-bold text-zinc-900 dark:text-white mb-5 uppercase tracking-widest flex items-center"><span className="w-2 h-2 rounded-full bg-orange-500 mr-2.5"></span> Contenuto</h3>
+              <div className="space-y-6">
+                <div className="space-y-1.5"><label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Oggetto (Titolo) *</label><input type="text" value={formData.oggetto} onChange={e => setFormData({...formData, oggetto: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-sm font-bold dark:text-white transition-all" required /></div>
+                <div className="space-y-1.5"><label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Contenuto Tecnico *</label><textarea value={formData.contenuto} onChange={e => setFormData({...formData, contenuto: e.target.value})} className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 outline-none text-sm min-h-[180px] leading-relaxed dark:text-white font-medium transition-all" required /></div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-zinc-100">
-              <button type="button" onClick={() => setIsFormOpen(false)} className="px-6 py-2.5 bg-white text-zinc-600 text-sm font-medium rounded-xl hover:bg-zinc-50 mr-3 transition-all">Annulla</button>
-              <button type="submit" disabled={isLoading} className="px-6 py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-xl hover:bg-zinc-800 disabled:opacity-50 transition-all shadow-sm">
-                {isLoading ? 'Salvataggio...' : 'Salva Documento'}
+            <div className="flex justify-end pt-5 border-t border-zinc-100 dark:border-zinc-800 mt-8">
+              <button type="button" onClick={() => setIsFormOpen(false)} className="px-6 py-3.5 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-sm font-bold rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800 mr-3 transition-all border border-zinc-200 dark:border-zinc-800 shadow-sm">Annulla</button>
+              <button type="submit" disabled={isLoading} className="px-8 py-3.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-bold rounded-2xl hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5">
+                {isLoading ? 'Salvataggio...' : 'Conferma e Salva'}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="bg-white rounded-3xl shadow-sm border border-zinc-200/80 flex flex-col overflow-hidden w-full">
-        {/* Barra di ricerca globale e paginazione */}
-        <div className="p-4 border-b border-zinc-100 bg-zinc-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm rounded-[2rem] shadow-sm border border-zinc-200/60 dark:border-zinc-800/60 flex flex-col overflow-hidden w-full">
+        <div className="p-5 border-b border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-zinc-400" strokeWidth={1.5} />
-            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Cerca Globale (Oggetto, Codice, Rif)..." className="w-full pl-9 pr-4 py-2 bg-white border border-zinc-200 rounded-xl text-sm focus:ring-1 focus:ring-zinc-900 outline-none transition-all shadow-sm" />
+            <Search className="absolute left-4 top-3.5 h-4 w-4 text-zinc-400 dark:text-zinc-500" strokeWidth={2} />
+            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Cerca in tutto il database..." className="w-full pl-11 pr-4 py-3 bg-zinc-50/50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 dark:text-white outline-none transition-all shadow-sm" />
           </div>
-          
-          <div className="flex items-center gap-3 w-full sm:w-auto bg-white px-4 py-2 rounded-xl border border-zinc-200 shadow-sm">
-            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Mostra Righe:</span>
-            <input 
-              type="number" 
-              value={rowLimit} 
-              onChange={(e) => setRowLimit(e.target.value)}
-              placeholder="Tutte"
-              className="w-16 px-2 py-1 text-sm bg-zinc-50 border border-zinc-200 rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-900 text-center" 
-            />
-            <span className="text-xs text-zinc-400 font-medium">/ {items.length} totali</span>
+          <div className="flex items-center gap-3 w-full sm:w-auto bg-white dark:bg-zinc-900 px-5 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Mostra:</span>
+            <input type="number" value={rowLimit} onChange={(e) => setRowLimit(e.target.value)} placeholder="Tutte" className="w-16 px-2 py-1 text-sm font-bold bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10 dark:text-white text-center transition-all" />
+            <span className="text-[11px] text-zinc-400 font-bold uppercase tracking-widest">/ {items.length}</span>
           </div>
         </div>
         
-        {/* Tabella Scrollabile */}
         <div className="w-full overflow-x-auto custom-scrollbar relative">
-          <table className="w-full text-sm text-left min-w-[2800px]">
-            <thead className="bg-white border-b border-zinc-100">
+          <table className="w-full text-sm text-left min-w-[2800px] dark:text-zinc-300">
+            <thead className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800/80">
               <tr>
-                <SortHeader label="numero_originale" sortKey="numero_originale" sticky position="left-0" />
-                <SortHeader label="riferimento" sortKey="riferimento" />
-                <SortHeader label="classe" sortKey="classe" />
-                <SortHeader label="oggetto" sortKey="oggetto" />
-                <SortHeader label="tipologia" sortKey="tipologia" />
-                <SortHeader label="argomento" sortKey="argomento" />
-                <SortHeader label="contenuto" sortKey="contenuto" />
-                <SortHeader label="prodotto_1" sortKey="prodotto_1" />
-                <SortHeader label="prodotto_2" sortKey="prodotto_2" />
-                <SortHeader label="prodotto_3" sortKey="prodotto_3" />
-                <SortHeader label="prodotto_4" sortKey="prodotto_4" />
-                <SortHeader label="prodotto_5" sortKey="prodotto_5" />
-                <SortHeader label="prodotto_6" sortKey="prodotto_6" />
-                <SortHeader label="data_pubblicazione" sortKey="data_pubblicazione" />
-                
-                <th className="px-4 py-3 align-top text-center text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Stato IA</th>
-                <th className="px-4 py-3 align-top text-right text-[11px] font-semibold text-zinc-500 uppercase tracking-wider sticky right-0 bg-white shadow-[-5px_0_15px_-3px_rgba(0,0,0,0.05)] z-20">Azioni</th>
+                <SortHeader label="Codice" sortKey="numero_originale" sticky position="left-0" />
+                <SortHeader label="Riferimento" sortKey="riferimento" />
+                <SortHeader label="Classe" sortKey="classe" />
+                <SortHeader label="Oggetto" sortKey="oggetto" />
+                <SortHeader label="Tipologia" sortKey="tipologia" />
+                <SortHeader label="Argomento" sortKey="argomento" />
+                <SortHeader label="Contenuto" sortKey="contenuto" />
+                <SortHeader label="Prod. 1" sortKey="prodotto_1" />
+                <SortHeader label="Prod. 2" sortKey="prodotto_2" />
+                <SortHeader label="Prod. 3" sortKey="prodotto_3" />
+                <SortHeader label="Prod. 4" sortKey="prodotto_4" />
+                <SortHeader label="Prod. 5" sortKey="prodotto_5" />
+                <SortHeader label="Prod. 6" sortKey="prodotto_6" />
+                <SortHeader label="Data Pub." sortKey="data_pubblicazione" />
+                <th className="px-5 py-4 align-top text-center text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest bg-zinc-50/50 dark:bg-zinc-900/50">Stato IA</th>
+                <th className="px-5 py-4 align-top text-right text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest sticky right-0 bg-zinc-50/50 dark:bg-zinc-900/50 shadow-[-5px_0_15px_-3px_rgba(0,0,0,0.05)] dark:shadow-[-5px_0_15px_-3px_rgba(0,0,0,0.5)] z-20">Azioni</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
               {processedItems.length === 0 ? (
-                <tr>
-                  <td colSpan={16} className="px-4 py-10 text-center text-zinc-500 text-sm">Nessun documento trovato.</td>
-                </tr>
+                <tr><td colSpan={16} className="px-4 py-12 text-center font-medium text-zinc-500 dark:text-zinc-400 text-sm bg-white dark:bg-zinc-900">Nessun documento trovato.</td></tr>
               ) : (
                 processedItems.map(item => (
-                  <tr key={item.id} className="hover:bg-zinc-50/50 transition-colors group">
-                    <td className="px-4 py-3 text-zinc-700 font-mono text-xs whitespace-nowrap sticky left-0 bg-white group-hover:bg-zinc-50 transition-colors shadow-[5px_0_15px_-3px_rgba(0,0,0,0.02)] z-10 border-r border-zinc-100">
-                      {item.numero_originale || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500 font-mono text-[11px] whitespace-nowrap">{item.riferimento || '-'}</td>
-                    <td className="px-4 py-3 text-zinc-600 text-xs whitespace-nowrap">{item.classe || '-'}</td>
-                    <td className="px-4 py-3 font-medium text-zinc-900 max-w-[250px] truncate" title={item.oggetto}>{item.oggetto}</td>
-                    <td className="px-4 py-3 text-zinc-600 text-xs whitespace-nowrap">{item.tipologia || '-'}</td>
-                    <td className="px-4 py-3 text-zinc-600 text-xs max-w-[150px] truncate" title={item.argomento}>{item.argomento || '-'}</td>
-                    
-                    {/* Colonna CONTENUTO aggiunta */}
-                    <td className="px-4 py-3 text-zinc-500 text-xs max-w-[300px] truncate" title={item.contenuto}>{item.contenuto || '-'}</td>
-                    
-                    <td className="px-4 py-3 text-zinc-500 text-[11px] max-w-[120px] truncate" title={item.prodotto_1}>{item.prodotto_1 || '-'}</td>
-                    <td className="px-4 py-3 text-zinc-500 text-[11px] max-w-[120px] truncate" title={item.prodotto_2}>{item.prodotto_2 || '-'}</td>
-                    <td className="px-4 py-3 text-zinc-500 text-[11px] max-w-[120px] truncate" title={item.prodotto_3}>{item.prodotto_3 || '-'}</td>
-                    <td className="px-4 py-3 text-zinc-500 text-[11px] max-w-[120px] truncate" title={item.prodotto_4}>{item.prodotto_4 || '-'}</td>
-                    <td className="px-4 py-3 text-zinc-500 text-[11px] max-w-[120px] truncate" title={item.prodotto_5}>{item.prodotto_5 || '-'}</td>
-                    <td className="px-4 py-3 text-zinc-500 text-[11px] max-w-[120px] truncate" title={item.prodotto_6}>{item.prodotto_6 || '-'}</td>
-                    <td className="px-4 py-3 text-zinc-600 text-xs whitespace-nowrap">{item.data_pubblicazione || '-'}</td>
-                    
-                    <td className="px-4 py-3 text-center">
+                  <tr key={item.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors group bg-white dark:bg-zinc-900">
+                    <td className="px-5 py-4 text-zinc-900 dark:text-white font-mono text-xs font-bold whitespace-nowrap sticky left-0 bg-white dark:bg-zinc-900 group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/80 transition-colors shadow-[5px_0_15px_-3px_rgba(0,0,0,0.02)] z-10 border-r border-zinc-100 dark:border-zinc-800/80">{item.numero_originale || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 font-mono text-[11px] font-medium whitespace-nowrap">{item.riferimento || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-300 text-xs font-medium whitespace-nowrap">{item.classe || '-'}</td>
+                    <td className="px-5 py-4 font-bold text-zinc-900 dark:text-white max-w-[250px] truncate" title={item.oggetto}>{item.oggetto}</td>
+                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-300 text-xs font-medium whitespace-nowrap">{item.tipologia || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-300 text-xs font-medium max-w-[150px] truncate" title={item.argomento}>{item.argomento || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 text-xs font-medium max-w-[300px] truncate leading-relaxed" title={item.contenuto}>{item.contenuto || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium max-w-[120px] truncate">{item.prodotto_1 || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium max-w-[120px] truncate">{item.prodotto_2 || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium max-w-[120px] truncate">{item.prodotto_3 || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium max-w-[120px] truncate">{item.prodotto_4 || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium max-w-[120px] truncate">{item.prodotto_5 || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium max-w-[120px] truncate">{item.prodotto_6 || '-'}</td>
+                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-300 text-xs font-medium whitespace-nowrap">{item.data_pubblicazione || '-'}</td>
+                    <td className="px-5 py-4 text-center">
                       <div className="flex justify-center tooltip" title={item.ha_embedding ? "Documento appreso dall'IA" : "In attesa di Sincronizzazione"}>
-                        {item.ha_embedding 
-                          ? <CheckCircle2 className="w-4 h-4 text-green-600" strokeWidth={2.5} />
-                          : <CircleDashed className="w-4 h-4 text-zinc-300" strokeWidth={2.5} />
-                        }
+                        {item.ha_embedding ? <CheckCircle2 className="w-5 h-5 text-green-500" strokeWidth={2.5} /> : <CircleDashed className="w-5 h-5 text-zinc-300 dark:text-zinc-600" strokeWidth={2.5} />}
                       </div>
                     </td>
-                    
-                    <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-zinc-50 transition-colors shadow-[-5px_0_15px_-3px_rgba(0,0,0,0.02)] z-10 border-l border-zinc-100">
-                      <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openForm(item)} className="p-2 text-zinc-400 hover:text-zinc-900 bg-white hover:bg-zinc-100 rounded-lg border border-zinc-100 hover:border-zinc-300 transition-all"><Edit className="w-4 h-4"/></button>
-                        <button onClick={() => handleDelete(item.id)} className="p-2 text-zinc-400 hover:text-red-600 bg-white hover:bg-red-50 rounded-lg border border-zinc-100 hover:border-red-200 transition-all"><Trash2 className="w-4 h-4"/></button>
+                    <td className="px-5 py-4 text-right sticky right-0 bg-white dark:bg-zinc-900 group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/80 transition-colors shadow-[-5px_0_15px_-3px_rgba(0,0,0,0.02)] z-10 border-l border-zinc-100 dark:border-zinc-800/80">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openForm(item)} className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all"><Edit className="w-4 h-4"/></button>
+                        <button onClick={() => handleDelete(item.id)} className="p-2 text-zinc-400 hover:text-white bg-white dark:bg-zinc-900 hover:bg-red-500 dark:hover:bg-red-600 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-red-500 dark:hover:border-red-600 shadow-sm transition-all"><Trash2 className="w-4 h-4"/></button>
                       </div>
                     </td>
                   </tr>

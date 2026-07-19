@@ -1,44 +1,31 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, Sparkles, Trash2 } from 'lucide-react';
+import { Send, Bot, Sparkles, Trash2, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
-type Message = {
-  role: 'user' | 'ai';
-  content: string;
-};
+type Message = { role: 'user' | 'ai'; content: string; };
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null); // Aggiunto per gestire l'auto-focus
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Caricamento cronologia iniziale
   useEffect(() => {
     const saved = localStorage.getItem('crm_chat_history');
-    if (saved) {
-      setMessages(JSON.parse(saved));
-    } else {
-      setMessages([{ role: 'ai', content: 'Ciao! Sono Z-Assist, il tuo assistente IA per le soluzioni Zucchetti.\n\nDescrivimi l\'anomalia che stai riscontrando o il messaggio di errore che visualizzi, e ti fornirò subito la procedura di risoluzione e le note di rilascio ufficiali.' }]);
-    }
-    // Auto-focus all'apertura
+    if (saved) setMessages(JSON.parse(saved));
+    else setMessages([{ role: 'ai', content: 'Ciao! Sono **Z-Assist**, il tuo assistente IA per le soluzioni Zucchetti.\n\nDescrivimi l\'anomalia che stai riscontrando o il messaggio di errore che visualizzi, e ti fornirò subito la procedura di risoluzione e le note di rilascio ufficiali.' }]);
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
-  // Salvataggio automatico e scroll down
   useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem('crm_chat_history', JSON.stringify(messages));
-    }
+    if (messages.length > 0) localStorage.setItem('crm_chat_history', JSON.stringify(messages));
     scrollToBottom();
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   const clearChat = () => {
     if (confirm('Vuoi davvero cancellare tutta la conversazione?')) {
@@ -52,96 +39,105 @@ export default function ChatPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-
     const userMessage: Message = { role: 'user', content: input };
-    
-    // CREIAMO LA CRONOLOGIA COMPLETA DA INVIARE ALL'API
     const newChatHistory = [...messages, userMessage];
-    
     setMessages(newChatHistory);
     setInput('');
     setIsLoading(true);
 
     try {
       const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // INVIAMO L'INTERO ARRAY DI MESSAGGI, non solo il testo!
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newChatHistory }),
       });
-
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.reply || "Errore di comunicazione col server.");
-      }
-
+      if (!response.ok) throw new Error(data.reply || "Errore di comunicazione col server.");
       setMessages(prev => [...prev, { role: 'ai', content: data.reply || "Errore di risposta." }]);
     } catch (error: any) {
       setMessages(prev => [...prev, { role: 'ai', content: `⚠️ Si è verificato un problema: ${error.message}` }]);
     } finally {
       setIsLoading(false);
-      // Ripristina il focus sull'input terminato il caricamento
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-6rem)] md:h-[calc(100dvh-8rem)] bg-white rounded-3xl shadow-sm border border-zinc-200/80 overflow-hidden animate-in fade-in duration-500">
+    // ALTEZZA AUMENTATA: sfruttiamo lo spazio disponibile ricalcolando le viewport
+    <div className="flex flex-col h-[calc(100dvh-2.5rem)] md:h-[calc(100dvh-3.5rem)] lg:h-[calc(100dvh-4.5rem)] bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden animate-in fade-in duration-500 relative">
       
-      {/* Intestazione Chat */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-zinc-50/50 flex-shrink-0">
+      {/* HEADER */}
+      <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100 dark:border-zinc-800/80 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md flex-shrink-0 z-10">
         <div className="flex items-center">
-          <div className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center mr-3 shadow-sm">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="w-11 h-11 bg-zinc-900 dark:bg-white rounded-2xl flex items-center justify-center mr-4 shadow-md">
+            <Sparkles className="w-6 h-6 text-white dark:text-zinc-900" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Z-Assist</h2>
-            <p className="text-xs text-zinc-500 font-medium">Assistente CRM Intelligente</p>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Z-Assist AI</h2>
+            <div className="flex items-center mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-widest">Sempre Attivo</p>
+            </div>
           </div>
         </div>
-        <button 
-          onClick={clearChat}
-          className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors tooltip"
-          title="Svuota chat"
-        >
+        <button onClick={clearChat} className="p-2.5 text-zinc-400 hover:text-red-500 dark:hover:text-red-400 bg-zinc-50 hover:bg-red-50 dark:bg-zinc-800 dark:hover:bg-red-900/30 rounded-xl transition-all shadow-sm border border-zinc-200/50 dark:border-zinc-700" title="Svuota chat">
           <Trash2 className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Area Messaggi */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-zinc-50/30">
+      {/* CHAT AREA */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 bg-zinc-50/30 dark:bg-zinc-950/30">
         {messages.map((msg, index) => (
-          <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`flex max-w-[90%] md:max-w-[75%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
+          <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+            {/* LARGHEZZA BOLLE AUMENTATA: 85% su desktop per facilitare la lettura dei testi lunghi */}
+            <div className={`flex max-w-[92%] md:max-w-[85%] lg:max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-3`}>
               
-              {msg.role === 'ai' && (
-                <div className="w-8 h-8 rounded-full bg-white border border-zinc-200 flex items-center justify-center flex-shrink-0 shadow-sm mb-1">
-                  <Bot className="w-4 h-4 text-zinc-900" />
-                </div>
-              )}
+              {/* AVATAR */}
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mb-1 z-10 ${msg.role === 'user' ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400' : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white'}`}>
+                {msg.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+              </div>
 
-              <div 
-                className={`px-5 py-3.5 text-[15px] leading-relaxed shadow-sm break-words
+              {/* BUBBLE */}
+              <div className={`px-6 py-4 text-[15px] leading-relaxed shadow-sm break-words relative
                   ${msg.role === 'user' 
-                    ? 'bg-zinc-900 text-white rounded-2xl rounded-tr-sm' 
-                    : 'bg-white text-zinc-800 border border-zinc-200/80 rounded-2xl rounded-tl-sm'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-[1.5rem] rounded-br-sm' 
+                    : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-800 rounded-[1.5rem] rounded-bl-sm'
                   }`}
               >
                 {msg.role === 'user' ? (
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
                 ) : (
                   <ReactMarkdown 
                     components={{
-                      p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                      strong: ({node, ...props}) => <strong className="font-semibold text-zinc-900" {...props} />,
-                      ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2 space-y-1" {...props} />,
-                      ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...props} />,
+                      p: ({node, ...props}) => <p className="mb-3 last:mb-0" {...props} />,
+                      strong: ({node, ...props}) => <strong className="font-bold text-zinc-900 dark:text-white" {...props} />,
+                      ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-3 space-y-1.5" {...props} />,
+                      ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-3 space-y-1.5" {...props} />,
                       li: ({node, ...props}) => <li className="pl-1" {...props} />,
-                      h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 text-zinc-900" {...props} />,
-                      h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 text-zinc-900" {...props} />,
-                      h3: ({node, ...props}) => <h3 className="text-[15px] font-semibold mb-1.5 mt-2 text-zinc-900" {...props} />,
-                      a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} />,
+                      h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-3 mt-5 text-zinc-900 dark:text-white" {...props} />,
+                      h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-3 mt-5 text-zinc-900 dark:text-white" {...props} />,
+                      h3: ({node, ...props}) => <h3 className="text-base font-bold mb-2 mt-3 text-zinc-900 dark:text-white" {...props} />,
+                      a: ({node, ...props}) => <a className="text-blue-600 dark:text-blue-400 font-semibold hover:underline" {...props} />,
+                      
+                      /* FIX IMPAGINAZIONE CODICE: Blocco per grandi script, Inline per parole singole */
+                      pre: ({node, children, ...props}: any) => (
+                        <pre className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl my-4 overflow-x-auto border border-zinc-200/80 dark:border-zinc-800 shadow-sm" {...props}>
+                          {children}
+                        </pre>
+                      ),
+                      code: ({node, inline, className, children, ...props}: any) => {
+                        if (inline) {
+                          return (
+                            <code className="bg-rose-50 dark:bg-rose-900/20 px-1.5 py-0.5 mx-0.5 rounded-md text-[14px] font-mono text-rose-600 dark:text-rose-400 break-words" {...props}>
+                              {children}
+                            </code>
+                          );
+                        }
+                        return (
+                          <code className={`font-mono text-[13.5px] text-zinc-800 dark:text-zinc-200 ${className || ''}`} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
                     }}
                   >
                     {msg.content}
@@ -152,42 +148,43 @@ export default function ChatPage() {
           </div>
         ))}
         
-        {/* Indicatore di digitazione */}
+        {/* TYPING INDICATOR */}
         {isLoading && (
-          <div className="flex justify-start">
-            <div className="flex max-w-[85%] flex-row items-end gap-2">
-              <div className="w-8 h-8 rounded-full bg-white border border-zinc-200 flex items-center justify-center flex-shrink-0 shadow-sm mb-1">
-                <Bot className="w-4 h-4 text-zinc-900" />
+          <div className="flex justify-start animate-in fade-in duration-300">
+            <div className="flex max-w-[85%] flex-row items-end gap-3">
+              <div className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center flex-shrink-0 shadow-sm mb-1">
+                <Bot className="w-5 h-5 text-zinc-900 dark:text-white" />
               </div>
-              <div className="px-5 py-4 bg-white border border-zinc-200/80 rounded-2xl rounded-tl-sm shadow-sm flex space-x-1.5 items-center h-[52px]">
-                <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="px-6 py-5 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-[1.5rem] rounded-bl-sm shadow-sm flex space-x-2 items-center">
+                <div className="w-2.5 h-2.5 bg-zinc-300 dark:bg-zinc-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2.5 h-2.5 bg-zinc-400 dark:bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2.5 h-2.5 bg-zinc-500 dark:bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      {/* Area Input */}
-      <div className="p-3 md:p-4 bg-white border-t border-zinc-100 flex-shrink-0">
-        <form onSubmit={handleSubmit} className="relative flex items-center">
+      {/* INPUT AREA */}
+      <div className="p-4 md:p-6 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-800/80 flex-shrink-0 z-10">
+        {/* LARGHEZZA INPUT AUMENTATA: rimosso il limite max-w-4xl per fondersi con il layout */}
+        <form onSubmit={handleSubmit} className="relative flex items-center w-full">
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Scrivi una domanda a Z-Assist..."
+            placeholder="Chiedi supporto a Z-Assist..."
             disabled={isLoading}
-            className="w-full pl-5 pr-14 py-3.5 md:py-4 bg-zinc-50 border border-zinc-200 rounded-full focus:ring-1 focus:ring-zinc-900 focus:bg-white outline-none transition-all text-[15px] shadow-sm disabled:opacity-60"
+            className="w-full pl-6 pr-16 py-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-full focus:ring-4 focus:ring-zinc-900/5 dark:focus:ring-white/5 focus:border-zinc-400 dark:focus:border-zinc-500 outline-none transition-all text-base font-medium dark:text-white shadow-sm disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-2 p-2.5 bg-zinc-900 text-white rounded-full hover:bg-zinc-800 transition-colors disabled:opacity-40 shadow-sm"
+            className="absolute right-2.5 p-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all disabled:opacity-30 disabled:scale-95 shadow-md hover:shadow-lg active:scale-95"
           >
-            <Send className="w-4 h-4 md:w-5 md:h-5" />
+            <Send className="w-5 h-5 ml-0.5" />
           </button>
         </form>
       </div>
