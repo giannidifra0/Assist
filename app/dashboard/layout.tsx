@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-// IMPORTANTE: Ho aggiunto l'icona FileText qui sotto
 import { LayoutDashboard, BookOpen, FileText, Users, LogOut, UserCircle, Sparkles, Menu, X, Settings, PanelLeftClose, Moon, Sun } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -105,7 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* HEADER SIDEBAR (Logo) */}
         <div className="hidden md:flex h-20 items-center mt-2 relative w-full overflow-hidden">
-          <div className={`absolute left-0 flex items-center h-full transition-all duration-500 ease-in-out ${isCollapsed ? 'translate-x-[24px]' : 'translate-x-6'}`}>
+          <div className="absolute left-0 flex items-center h-full transition-all duration-500 ease-in-out translate-x-6">
              <div className="w-9 h-9 shrink-0 bg-zinc-900 dark:bg-white rounded-[10px] flex items-center justify-center shadow-sm">
                <span className="text-white dark:text-zinc-900 font-bold text-sm tracking-widest">ZA</span>
              </div>
@@ -118,39 +117,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* MENU DI NAVIGAZIONE */}
         <nav className="flex-1 overflow-y-auto mt-16 md:mt-2 space-y-2 px-3 custom-scrollbar overflow-x-hidden">
           
-          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard" className={`flex items-center h-[44px] rounded-xl text-[14px] font-semibold transition-all duration-300 group overflow-hidden
-            ${pathname === '/dashboard' ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'} 
-            ${isCollapsed ? 'pl-[19px] mx-1' : 'px-4 mx-1'}`}>
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+            ${pathname === '/dashboard' ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
             <LayoutDashboard className="w-5 h-5 shrink-0" strokeWidth={1.5} />
             <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Dashboard</span>
           </Link>
           
-          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/knowledge" className={`flex items-center h-[44px] rounded-xl text-[14px] font-semibold transition-all duration-300 group overflow-hidden
-            ${pathname === '/dashboard/knowledge' ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'} 
-            ${isCollapsed ? 'pl-[19px] mx-1' : 'px-4 mx-1'}`}>
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/knowledge" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+            ${pathname === '/dashboard/knowledge' ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
             <BookOpen className="w-5 h-5 shrink-0" strokeWidth={1.5} />
             <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Knowledge Base</span>
           </Link>
 
-          {/* NUOVO LINK: ARCHIVIO MANUALI */}
-          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/manuals" className={`flex items-center h-[44px] rounded-xl text-[14px] font-semibold transition-all duration-300 group overflow-hidden
-            ${pathname.includes('/manuals') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'} 
-            ${isCollapsed ? 'pl-[19px] mx-1' : 'px-4 mx-1'}`}>
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/manuals" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+            ${pathname.includes('/manuals') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
             <FileText className="w-5 h-5 shrink-0" strokeWidth={1.5} />
             <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Archivio Manuali</span>
           </Link>
 
-          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/chat" className={`flex items-center h-[44px] rounded-xl text-[14px] font-semibold transition-all duration-300 group overflow-hidden
-            ${pathname.includes('/chat') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'} 
-            ${isCollapsed ? 'pl-[19px] mx-1' : 'px-4 mx-1'}`}>
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/chat" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+            ${pathname.includes('/chat') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
             <Sparkles className="w-5 h-5 shrink-0" strokeWidth={1.5} />
             <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Assistente IA</span>
           </Link>
 
           {user.ruolo === 'admin' && (
-            <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/users" className={`flex items-center h-[44px] rounded-xl text-[14px] font-semibold transition-all duration-300 group overflow-hidden
-              ${pathname.includes('/users') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'} 
-              ${isCollapsed ? 'pl-[19px] mx-1' : 'px-4 mx-1'}`}>
+            <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/users" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+              ${pathname.includes('/users') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
               <Users className="w-5 h-5 shrink-0" strokeWidth={1.5} />
               <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Gestione Utenti</span>
             </Link>
