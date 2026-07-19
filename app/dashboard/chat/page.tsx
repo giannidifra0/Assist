@@ -62,7 +62,6 @@ export default function ChatPage() {
   };
 
   return (
-    // ALTEZZA AUMENTATA: sfruttiamo lo spazio disponibile ricalcolando le viewport
     <div className="flex flex-col h-[calc(100dvh-2.5rem)] md:h-[calc(100dvh-3.5rem)] lg:h-[calc(100dvh-4.5rem)] bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden animate-in fade-in duration-500 relative">
       
       {/* HEADER */}
@@ -88,7 +87,6 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 bg-zinc-50/30 dark:bg-zinc-950/30">
         {messages.map((msg, index) => (
           <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-            {/* LARGHEZZA BOLLE AUMENTATA: 85% su desktop per facilitare la lettura dei testi lunghi */}
             <div className={`flex max-w-[92%] md:max-w-[85%] lg:max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-3`}>
               
               {/* AVATAR */}
@@ -116,9 +114,27 @@ export default function ChatPage() {
                       h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-3 mt-5 text-zinc-900 dark:text-white" {...props} />,
                       h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-3 mt-5 text-zinc-900 dark:text-white" {...props} />,
                       h3: ({node, ...props}) => <h3 className="text-base font-bold mb-2 mt-3 text-zinc-900 dark:text-white" {...props} />,
-                      a: ({node, ...props}) => <a className="text-blue-600 dark:text-blue-400 font-semibold hover:underline" {...props} />,
                       
-                      /* FIX IMPAGINAZIONE CODICE: Blocco per grandi script, Inline per parole singole */
+                      /* LOGICA BOTTONE PDF INLINE SENZA DIV */
+                      a: ({node, href, children, ...props}: any) => {
+                        if (href?.includes('/api/download')) {
+                          return (
+                            <a 
+                              href={href}
+                              title="Scarica il manuale di riferimento"
+                              className="inline-flex items-center justify-center gap-1 ml-2 px-2.5 py-0.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-500/20 text-[10px] font-extrabold tracking-widest rounded-full hover:bg-rose-100 dark:hover:bg-rose-500/20 hover:-translate-y-0.5 transition-all shadow-sm align-middle group"
+                            >
+                              <span className="w-4 h-4 rounded-full bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                              </span>
+                              PDF
+                            </a>
+                          );
+                        }
+                        // Altrimenti renderizza un normale link blu testuale
+                        return <a href={href} className="text-blue-600 dark:text-blue-400 font-semibold hover:underline" {...props}>{children}</a>;
+                      },
+                      
                       pre: ({node, children, ...props}: any) => (
                         <pre className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-2xl my-4 overflow-x-auto border border-zinc-200/80 dark:border-zinc-800 shadow-sm" {...props}>
                           {children}
@@ -168,7 +184,6 @@ export default function ChatPage() {
 
       {/* INPUT AREA */}
       <div className="p-4 md:p-6 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-800/80 flex-shrink-0 z-10">
-        {/* LARGHEZZA INPUT AUMENTATA: rimosso il limite max-w-4xl per fondersi con il layout */}
         <form onSubmit={handleSubmit} className="relative flex items-center w-full">
           <input
             ref={inputRef}

@@ -7,29 +7,50 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 export async function POST(req: Request) {
   try {
-    const { titolo, versione, prodotto, chunks } = await req.json();
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const titolo = formData.get('titolo') as string;
+    const versione = formData.get('versione') as string;
+    const prodotto = formData.get('prodotto') as string;
+    const chunksString = formData.get('chunks') as string;
 
-    if (!chunks || chunks.length === 0) {
-      throw new Error("Nessun frammento di testo da salvare.");
+    if (!file || !chunksString) {
+      throw new Error("File PDF o frammenti di testo mancanti.");
     }
 
-    // 1. Salva il documento padre
+    const chunks = JSON.parse(chunksString);
+
+    // 1. CARICAMENTO DEL FILE FISICO SU SUPABASE STORAGE
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const uniqueFileName = `${Date.now()}_${safeName}`;
+    
+    const { error: storageError } = await supabase.storage
+      .from('manuali_pdf')
+      .upload(uniqueFileName, file, { contentType: 'application/pdf' });
+
+    if (storageError) {
+      throw new Error("Errore Storage: Impossibile salvare il file PDF (" + storageError.message + ")");
+    }
+
+    // 2. SALVATAGGIO DOCUMENTO PADRE (Ora include il link al PDF)
     const { data: docData, error: docError } = await supabase
       .from('documenti')
-      .insert([{ titolo, versione, prodotto }])
+      .insert([{ 
+         titolo, 
+         versione, 
+         prodotto, 
+         pdf_url: uniqueFileName // <-- Salvato nel padre!
+      }])
       .select('id')
       .single();
 
-    if (docError || !docData) {
-      throw new Error("Errore DB (Documento): " + (docError?.message || 'Sconosciuto'));
-    }
+    if (docError || !docData) throw new Error("Errore DB (Documento): " + (docError?.message || 'Sconosciuto'));
 
     const documento_id = docData.id;
     let inseriti = 0;
 
-    // 2. Vettorizza e salva ogni singolo chunk approvato (con gestione errori)
+    // 3. VETTORIZZAZIONE E SALVATAGGIO DEI CHUNK
     for (const chunk of chunks) {
-      // Costruiamo il contesto per l'IA
       const textToEmbed = `Prodotto: ${prodotto} | Titolo: ${titolo} | Capitolo: ${chunk.capitolo} | Testo: ${chunk.testo}`;
       
       const result = await ai.models.embedContent({ 
@@ -43,16 +64,12 @@ export async function POST(req: Request) {
         const { error: chunkError } = await supabase.from('documenti_chunk').insert([{
           documento_id: documento_id,
           capitolo: chunk.capitolo,
-          pagina: parseInt(chunk.pagina, 10) || 1, // FORZATURA NUMERICA FONDAMENTALE
+          pagina: parseInt(chunk.pagina, 10) || 1,
           testo: chunk.testo,
           embedding: vettore
         }]);
 
-        if (chunkError) {
-          console.error("Errore salvataggio chunk:", chunkError);
-          throw new Error("Errore DB (Chunk): " + chunkError.message);
-        }
-        
+        if (chunkError) throw new Error("Errore DB (Chunk): " + chunkError.message);
         inseriti++;
       }
     }

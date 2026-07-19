@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, BookOpen, Users, LogOut, UserCircle, Sparkles, Menu, X, Settings, PanelLeftClose, Moon, Sun } from 'lucide-react';
+// IMPORTANTE: Ho aggiunto l'icona FileText qui sotto
+import { LayoutDashboard, BookOpen, FileText, Users, LogOut, UserCircle, Sparkles, Menu, X, Settings, PanelLeftClose, Moon, Sun } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
@@ -129,6 +130,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             ${isCollapsed ? 'pl-[19px] mx-1' : 'px-4 mx-1'}`}>
             <BookOpen className="w-5 h-5 shrink-0" strokeWidth={1.5} />
             <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Knowledge Base</span>
+          </Link>
+
+          {/* NUOVO LINK: ARCHIVIO MANUALI */}
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/manuals" className={`flex items-center h-[44px] rounded-xl text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+            ${pathname.includes('/manuals') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'} 
+            ${isCollapsed ? 'pl-[19px] mx-1' : 'px-4 mx-1'}`}>
+            <FileText className="w-5 h-5 shrink-0" strokeWidth={1.5} />
+            <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Archivio Manuali</span>
           </Link>
 
           <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/chat" className={`flex items-center h-[44px] rounded-xl text-[14px] font-semibold transition-all duration-300 group overflow-hidden

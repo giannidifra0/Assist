@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
-import { Database, Ticket, Sparkles, RefreshCw, Users, Activity, X, Cpu, FileUp, Save, Trash2, ArrowRight } from 'lucide-react';
+import { Database, Ticket, Sparkles, RefreshCw, Users, Activity, X, Cpu, FileUp, Save, Trash2, ArrowRight, FileText } from 'lucide-react';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -26,16 +26,19 @@ const AnimatedCounter = ({ value }: { value: number }) => {
 };
 
 export default function DashboardHome() {
-  const [stats, setStats] = useState({ knowledge: 0, usersOnline: 0, tickets: 0 });
+  const [stats, setStats] = useState({ knowledge: 0, usersOnline: 0, tickets: 0, manuals: 0 });
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [userName, setUserName] = useState('');
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState<'today' | '7d' | '30d' | 'all'>('7d');
   const [telemetry, setTelemetry] = useState({ totalTokens: 0, requests: 0, successRate: 0, promptTokens: 0, responseTokens: 0 });
+  
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [docMetadata, setDocMetadata] = useState({ titolo: '', versione: '', prodotto: '' });
   const [docChunks, setDocChunks] = useState<{capitolo: string, pagina: number, testo: string}[]>([]);
+  
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
 
@@ -50,7 +53,14 @@ export default function DashboardHome() {
       const { count: kbCount } = await supabase.from('knowledge_base').select('*', { count: 'exact', head: true });
       const { count: usersCount } = await supabase.from('utenti').select('*', { count: 'exact', head: true }).eq('is_online', true);
       const { count: ticketsCount, error: ticketsError } = await supabase.from('tickets').select('*', { count: 'exact', head: true });
-      setStats({ knowledge: kbCount || 0, usersOnline: usersCount || 0, tickets: ticketsError ? 0 : (ticketsCount || 0) });
+      const { count: manualsCount } = await supabase.from('documenti').select('*', { count: 'exact', head: true });
+      
+      setStats({ 
+        knowledge: kbCount || 0, 
+        usersOnline: usersCount || 0, 
+        tickets: ticketsError ? 0 : (ticketsCount || 0),
+        manuals: manualsCount || 0 
+      });
     }
     fetchDashboardData();
   }, []);
@@ -94,7 +104,7 @@ export default function DashboardHome() {
   };
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] md:min-h-screen -m-4 md:-m-6 lg:-m-8 p-4 md:p-8 lg:p-12 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] transition-colors duration-300">
+    <div className="relative min-h-[calc(100vh-4rem)] md:min-h-screen -m-4 md:-m-6 lg:-m-8 p-4 md:p-8 lg:p-12 bg-[radial-gradient(#d4d4d8_1.5px,transparent_1.5px)] dark:bg-[radial-gradient(#52525b_1.5px,transparent_1.5px)] [background-size:24px_24px] transition-colors duration-300">
       <div className="relative z-10 max-w-[1200px] mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
         <div className="pt-2">
@@ -104,7 +114,7 @@ export default function DashboardHome() {
           <p className="text-zinc-500 dark:text-zinc-400 text-base">Il tuo piano corrente e l'utilizzo dei servizi Z-Assist.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-800 hover:shadow-md transition-shadow duration-300">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 tracking-wide">Documenti IA</h2>
@@ -119,6 +129,14 @@ export default function DashboardHome() {
               <Ticket className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
             </div>
             <p className="text-3xl font-bold text-zinc-900 dark:text-white"><AnimatedCounter value={stats.tickets} /></p>
+          </div>
+
+          <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-800 hover:shadow-md transition-shadow duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 tracking-wide">Manuali PDF</h2>
+              <FileText className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
+            </div>
+            <p className="text-3xl font-bold text-zinc-900 dark:text-white"><AnimatedCounter value={stats.manuals} /></p>
           </div>
 
           <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-800 hover:shadow-md transition-shadow duration-300">
@@ -227,6 +245,7 @@ export default function DashboardHome() {
                         <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
+                            setSelectedPdfFile(file);
                             setIsParsing(true);
                             const formData = new FormData();
                             formData.append('file', file);
@@ -246,7 +265,7 @@ export default function DashboardHome() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-800">
                     <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Chunk Estratti ({docChunks.length})</h3>
-                    <button onClick={() => setDocChunks([])} className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">Cancella</button>
+                    <button onClick={() => { setDocChunks([]); setSelectedPdfFile(null); }} className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">Cancella</button>
                   </div>
                   {docChunks.map((chunk, index) => (
                     <div key={index} className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl relative group">
@@ -266,13 +285,46 @@ export default function DashboardHome() {
             </div>
             {docChunks.length > 0 && (
               <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex justify-end">
-                <button disabled={isUploading || !docMetadata.titolo} onClick={async () => {
+                <button 
+                  disabled={isUploading || !docMetadata.titolo} 
+                  onClick={async () => {
+                    if (!selectedPdfFile) {
+                      alert("Nessun file PDF originale selezionato. Ricarica il documento.");
+                      return;
+                    }
                     setIsUploading(true);
-                    const res = await fetch('/api/upload-document', { method: 'POST', body: JSON.stringify({ ...docMetadata, chunks: docChunks }) });
-                    const data = await res.json();
-                    if (data.success) { setIsUploadModalOpen(false); setDocChunks([]); setDocMetadata({ titolo: '', versione: '', prodotto: '' }); }
-                    setIsUploading(false);
-                  }} className="px-6 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium rounded-xl flex items-center">
+                    
+                    const uploadData = new FormData();
+                    uploadData.append('file', selectedPdfFile);
+                    uploadData.append('titolo', docMetadata.titolo);
+                    uploadData.append('versione', docMetadata.versione);
+                    uploadData.append('prodotto', docMetadata.prodotto);
+                    uploadData.append('chunks', JSON.stringify(docChunks));
+
+                    try {
+                      const res = await fetch('/api/upload-document', { 
+                        method: 'POST', 
+                        body: uploadData
+                      });
+                      const data = await res.json();
+                      
+                      if (data.success) { 
+                        setIsUploadModalOpen(false); 
+                        setDocChunks([]); 
+                        setDocMetadata({ titolo: '', versione: '', prodotto: '' });
+                        setSelectedPdfFile(null);
+                        alert("Manuale salvato e appreso con successo dall'IA!");
+                      } else {
+                        alert("Errore salvataggio: " + data.error);
+                      }
+                    } catch (error) {
+                      alert("Errore di connessione al server durante il salvataggio.");
+                    } finally {
+                      setIsUploading(false);
+                    }
+                  }} 
+                  className="px-6 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium rounded-xl flex items-center"
+                >
                   {isUploading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Salva nel Database IA
                 </button>
               </div>
