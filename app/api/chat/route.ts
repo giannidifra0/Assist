@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
+// Estende il timeout delle funzioni serverless su Vercel e disabilita la cache statica
+export const maxDuration = 60; 
+export const dynamic = 'force-dynamic';
+
 // Inizializzazione sicura per il backend
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -15,6 +19,9 @@ export async function POST(req: Request) {
     // 1. VALIDAZIONE RIGOROSA DELL'INPUT
     const body = await req.json().catch(() => ({}));
     const messages = body.messages;
+    
+    // ESTREMO LA VARIABILE SCOPE INVIATA DAL FRONTEND
+    const scope = body.scope || 'both';
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ reply: "Formato conversazione non valido." }, { status: 400 });
@@ -54,18 +61,14 @@ export async function POST(req: Request) {
     }
 
     // =========================================================================
-    // 3. RICERCA RAG (TOLLERANTE AI GUASTI E SENSIBILE ALLA FONTE)
+    // 3. RICERCA RAG TRAMITE SELECTOR
     // =========================================================================
     let kbData: any[] = [];
     let docData: any[] = [];
 
-    const promptLower = latestPrompt.toLowerCase();
-    
-    const vuoleSoloManuali = promptLower.includes("solo manual") || promptLower.includes("solo nei manual") || promptLower.includes("solo dal manual");
-    const vuoleSoloKB = promptLower.includes("solo kb") || promptLower.includes("solo knowledge base") || promptLower.includes("solo ticket") || promptLower.includes("solo nella knowledge");
-
-    const cercaKB = !vuoleSoloManuali;
-    const cercaManuali = !vuoleSoloKB;
+    // IMPOSTAZIONE FILTRI IN BASE AL BOTTONE SELEZIONATO
+    const cercaKB = scope === 'both' || scope === 'kb';
+    const cercaManuali = scope === 'both' || scope === 'manuals';
 
     if (cercaKB) {
       try {
@@ -118,7 +121,7 @@ export async function POST(req: Request) {
     }
 
     // =========================================================================
-    // 4. SYSTEM PROMPT (AGGIORNATO PER INLINE)
+    // 4. SYSTEM PROMPT
     // =========================================================================
     const systemInstruction = `
       Sei un Senior Technical Support Engineer esperto degli applicativi Zucchetti per il CRM aziendale.
@@ -130,8 +133,8 @@ export async function POST(req: Request) {
       3. EVITA RISPOSTE GENERICHE: Non dare risposte vaghe o generiche. Usa solo le informazioni presenti nel <contesto>.
       4. FORMATO RISPOSTA: Rispondi in un linguaggio tecnico chiaro, indica i percorsi da fare per raggiungere i punti di menu, e includi eventuali link ai manuali PDF ufficiali se disponibili.
       5. LINGUA: Rispondi sempre in italiano.
-      2. STRUTTURA: Usa elenchi puntati e metti in grassetto i menu.
-      3. CITAZIONE E DOWNLOAD (CRITICO): Alla fine della risposta scrivi SEMPRE le fonti utilizzate (Knowledge Base o Manuali). Se hai estratto la soluzione dalla sezione "MANUALI PDF UFFICIALI" e nel contesto è presente la voce "LINK_BOTTONE_PDF:", devi OBBLIGATORIAMENTE copiare e incollare l'esatto link fornito **sulla stessa riga**, direttamente di fianco al nome del manuale.
+      6. STRUTTURA: Usa elenchi puntati e metti in grassetto i menu.
+      7. CITAZIONE E DOWNLOAD (CRITICO): Alla fine della risposta scrivi SEMPRE le fonti utilizzate (Knowledge Base o Manuali). Se hai estratto la soluzione dalla sezione "MANUALI PDF UFFICIALI" e nel contesto è presente la voce "LINK_BOTTONE_PDF:", devi OBBLIGATORIAMENTE copiare e incollare l'esatto link fornito **sulla stessa riga**, direttamente di fianco al nome del manuale.
       
       Esempio corretto: "Fonti utilizzate: Manuale XYZ [PDF](/api/download?file=123.pdf)"
 
@@ -167,7 +170,7 @@ export async function POST(req: Request) {
     // 6. GENERAZIONE CON TIMEOUT SICURO E TELEMETRIA SGANCATA
     // =========================================================================
     const chat = ai.chats.create({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.5-flash", // IL NOME MODELLO ORIGINALE 'gemini-3.5-flash' NON ESISTE, RESTITUIVA ERRORE
         config: {
             systemInstruction: systemInstruction,
             temperature: 0.1,

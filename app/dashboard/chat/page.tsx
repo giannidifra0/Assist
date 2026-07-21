@@ -10,6 +10,10 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // NUOVO STATO: Memorizza l'ambito di ricerca scelto dall'utente
+  const [searchScope, setSearchScope] = useState<'both' | 'kb' | 'manuals'>('both');
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -48,7 +52,8 @@ export default function ChatPage() {
     try {
       const response = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newChatHistory }),
+        // INVIO DELLO SCOPE AL BACKEND
+        body: JSON.stringify({ messages: newChatHistory, scope: searchScope }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.reply || "Errore di comunicazione col server.");
@@ -115,7 +120,6 @@ export default function ChatPage() {
                       h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-3 mt-5 text-zinc-900 dark:text-white" {...props} />,
                       h3: ({node, ...props}) => <h3 className="text-base font-bold mb-2 mt-3 text-zinc-900 dark:text-white" {...props} />,
                       
-                      /* LOGICA BOTTONE PDF INLINE SENZA DIV */
                       a: ({node, href, children, ...props}: any) => {
                         if (href?.includes('/api/download')) {
                           return (
@@ -131,7 +135,6 @@ export default function ChatPage() {
                             </a>
                           );
                         }
-                        // Altrimenti renderizza un normale link blu testuale
                         return <a href={href} className="text-blue-600 dark:text-blue-400 font-semibold hover:underline" {...props}>{children}</a>;
                       },
                       
@@ -182,8 +185,35 @@ export default function ChatPage() {
         <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      {/* INPUT AREA */}
-      <div className="p-4 md:p-6 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-800/80 flex-shrink-0 z-10">
+      {/* INPUT AREA CON FILTRI */}
+      <div className="p-4 md:p-6 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-800/80 flex-shrink-0 z-10 flex flex-col">
+        
+        {/* PILLOLE DI SELEZIONE RICERCA */}
+        <div className="flex items-center gap-2 mb-3 px-2">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mr-2 hidden sm:block">Ricerca in:</span>
+          <button 
+            type="button" 
+            onClick={() => setSearchScope('both')} 
+            className={`px-4 py-1.5 text-[12px] font-bold rounded-full transition-all ${searchScope === 'both' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'}`}
+          >
+            Tutto
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setSearchScope('kb')} 
+            className={`px-4 py-1.5 text-[12px] font-bold rounded-full transition-all ${searchScope === 'kb' ? 'bg-blue-600 text-white shadow-sm' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'}`}
+          >
+            Solo KB
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setSearchScope('manuals')} 
+            className={`px-4 py-1.5 text-[12px] font-bold rounded-full transition-all ${searchScope === 'manuals' ? 'bg-rose-600 text-white shadow-sm' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'}`}
+          >
+            Solo Manuali
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="relative flex items-center w-full">
           <input
             ref={inputRef}
