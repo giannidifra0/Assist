@@ -77,12 +77,12 @@ export default function ChatPage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-white tracking-tight">Z-Assist IA</h2>
+              <h2 className="text-xs font-bold text-zinc-900 dark:text-white tracking-tight">Z-Assist IA</h2>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-500/10 text-green-600 dark:text-green-400">
                 ● Online
               </span>
             </div>
-            <p className="text-[11px] text-zinc-400 font-medium">Assistente Smart per Knowledge Base e Manuali</p>
+            <p className="text-[10px] text-zinc-400 font-medium">Assistente Smart per Knowledge Base e Manuali</p>
           </div>
         </div>
 
@@ -102,7 +102,7 @@ export default function ChatPage() {
             
             {/* BOLLA MESSAGGIO IMESSAGE */}
             <div 
-              className={`max-w-[88%] sm:max-w-[80%] md:max-w-[75%] px-4 py-2.5 text-xs sm:text-[13px] leading-relaxed break-words transition-all ${
+              className={`max-w-[88%] sm:max-w-[80%] md:max-w-[75%] px-4 py-3 text-xs leading-normal break-words transition-all ${
                 msg.role === 'user'
                   ? 'bg-blue-600 text-white rounded-[18px] rounded-br-[4px] shadow-sm font-normal'
                   : 'bg-zinc-200/80 dark:bg-zinc-800/90 text-zinc-900 dark:text-zinc-100 rounded-[18px] rounded-bl-[4px] shadow-sm font-normal'
@@ -118,9 +118,9 @@ export default function ChatPage() {
                     ul: ({node, ...props}) => <ul className="list-disc pl-4 mb-2 space-y-1" {...props} />,
                     ol: ({node, ...props}) => <ol className="list-decimal pl-4 mb-2 space-y-1" {...props} />,
                     li: ({node, ...props}) => <li className="pl-0.5" {...props} />,
-                    h1: ({node, ...props}) => <h1 className="text-sm font-bold mb-2 mt-3 text-zinc-950 dark:text-white" {...props} />,
-                    h2: ({node, ...props}) => <h2 className="text-xs font-bold mb-1.5 mt-2.5 text-zinc-950 dark:text-white" {...props} />,
-                    h3: ({node, ...props}) => <h3 className="text-[11px] font-bold mb-1 mt-2 text-zinc-950 dark:text-white" {...props} />,
+                    h1: ({node, ...props}) => <h1 className="text-xs font-bold mb-2 mt-3 text-zinc-950 dark:text-white uppercase tracking-wide" {...props} />,
+                    h2: ({node, ...props}) => <h2 className="text-[11px] font-bold mb-1.5 mt-2.5 text-zinc-950 dark:text-white uppercase tracking-wide" {...props} />,
+                    h3: ({node, ...props}) => <h3 className="text-[10px] font-bold mb-1 mt-2 text-zinc-950 dark:text-white uppercase tracking-wide" {...props} />,
                     
                     a: ({node, href, children, ...props}: any) => {
                       if (href?.includes('/api/download')) {
@@ -234,7 +234,7 @@ export default function ChatPage() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Messaggio iMessage a Z-Assist..."
             disabled={isLoading}
-            className="w-full pl-4 pr-11 py-2.5 bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/60 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs sm:text-sm font-normal text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-all disabled:opacity-60"
+            className="w-full pl-4 pr-11 py-2.5 bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/60 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-[11px] sm:text-xs font-normal text-zinc-900 dark:text-white placeholder:text-zinc-400 transition-all disabled:opacity-60"
           />
           <button
             type="submit"

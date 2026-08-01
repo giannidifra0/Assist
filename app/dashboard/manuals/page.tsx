@@ -154,7 +154,7 @@ export default function ManualsPage() {
         </div>
         
         <div className="w-full overflow-x-auto custom-scrollbar">
-          <table className="w-full text-sm text-left min-w-[800px] dark:text-zinc-300">
+          <table className="w-full text-xs text-left min-w-[800px] dark:text-zinc-300">
             <thead className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800/80">
               <tr>
                 <th className="px-3.5 py-3 align-top text-left text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest sticky left-0 bg-zinc-50/90 dark:bg-zinc-900/90 shadow-[5px_0_15px_-3px_rgba(0,0,0,0.05)] dark:shadow-[5px_0_15px_-3px_rgba(0,0,0,0.5)] z-20 border-r border-zinc-100 dark:border-zinc-800/80">Azioni</th>
