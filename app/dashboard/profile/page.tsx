@@ -45,9 +45,9 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl animate-in fade-in duration-500">
-      <div className="mb-8 mt-2">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white mb-2">Il Mio Profilo</h1>
-        <p className="text-base text-zinc-500 dark:text-zinc-400 font-medium">Gestisci le tue informazioni personali e le credenziali di accesso.</p>
+      <div className="mb-6 mt-2">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white mb-1.5">Il Mio Profilo</h1>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Gestisci le tue informazioni personali e le credenziali di accesso.</p>
       </div>
 
       <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-zinc-200/60 dark:border-zinc-800/60 p-8 md:p-12 relative overflow-hidden">

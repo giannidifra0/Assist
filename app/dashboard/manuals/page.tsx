@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 // IMPORTANTE: Aggiunta l'icona Download
-import { Search, Trash2, ArrowUpDown, Filter, FileText, Loader2, ArrowRight, Download } from 'lucide-react';
+import { Search, Trash2, ArrowUpDown, Filter, FileText, Loader2, ArrowRight, Download, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
@@ -24,7 +24,7 @@ export default function ManualsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   
   const [sortConfig, setSortConfig] = useState<{ key: keyof Documento; direction: 'asc' | 'desc' } | null>({ key: 'created_at', direction: 'desc' });
-  const [rowLimit, setRowLimit] = useState<number | string>(50);
+  const [rowLimit, setRowLimit] = useState<number | string>(15);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [activeFilterCol, setActiveFilterCol] = useState<string | null>(null);
 
@@ -132,8 +132,8 @@ export default function ManualsPage() {
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 w-full">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Archivio Manuali</h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1 font-medium">Gestisci i manuali in formato PDF caricati e appresi dall'IA.</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Archivio Manuali</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1 font-medium">Gestisci i manuali in formato PDF caricati e appresi dall'IA.</p>
         </div>
         <Link href="/dashboard" className="flex items-center justify-center px-6 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-bold rounded-2xl hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group">
           Vai al Caricamento <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -157,11 +157,11 @@ export default function ManualsPage() {
           <table className="w-full text-sm text-left min-w-[800px] dark:text-zinc-300">
             <thead className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800/80">
               <tr>
+                <th className="px-3.5 py-3 align-top text-left text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest sticky left-0 bg-zinc-50/90 dark:bg-zinc-900/90 shadow-[5px_0_15px_-3px_rgba(0,0,0,0.05)] dark:shadow-[5px_0_15px_-3px_rgba(0,0,0,0.5)] z-20 border-r border-zinc-100 dark:border-zinc-800/80">Azioni</th>
                 <SortHeader label="Titolo Manuale" sortKey="titolo" />
                 <SortHeader label="Prodotto" sortKey="prodotto" />
                 <SortHeader label="Versione" sortKey="versione" />
                 <SortHeader label="Caricato il" sortKey="created_at" />
-                <th className="px-5 py-4 align-top text-right text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest bg-zinc-50/50 dark:bg-zinc-900/50">Azioni</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
@@ -171,49 +171,56 @@ export default function ManualsPage() {
                 <tr><td colSpan={5} className="px-5 py-12 text-center font-medium text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900">Nessun manuale archiviato.</td></tr>
               ) : (
                 processedItems.map(doc => (
-                  <tr key={doc.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors group bg-white dark:bg-zinc-900">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center">
-                        <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mr-3 border border-blue-100 dark:border-blue-800/30">
-                          <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <span className="font-bold text-zinc-900 dark:text-white">{doc.titolo || 'Senza Titolo'}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-zinc-600 dark:text-zinc-300 font-semibold">{doc.prodotto || '-'}</td>
-                    <td className="px-5 py-4">
-                      <span className="px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-md text-xs font-bold font-mono border border-zinc-200 dark:border-zinc-700">
-                        v {doc.versione || '1.0'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 text-xs font-medium uppercase tracking-wider">{formatDate(doc.created_at)}</td>
-                    
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity gap-2">
-                        
-                        {/* NUOVO BOTTONE DOWNLOAD */}
+                  <tr key={doc.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors group bg-white dark:bg-zinc-900 text-xs">
+                    <td className="px-3.5 py-3 text-left sticky left-0 bg-white dark:bg-zinc-900 group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/80 transition-colors shadow-[5px_0_15px_-3px_rgba(0,0,0,0.02)] z-10 border-r border-zinc-100 dark:border-zinc-800/80">
+                      <div className="flex items-center gap-1.5">
                         {doc.pdf_url && (
-                          <a 
-                            href={`/api/download?file=${doc.pdf_url}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            title="Scarica PDF Originale"
-                            className="flex items-center px-3 py-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all"
-                          >
-                            <Download className="w-4 h-4" />
-                          </a>
+                          <>
+                            <a 
+                              href={doc.pdf_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              title="Visualizza PDF"
+                              className="p-1.5 text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:border-blue-500/50 shadow-sm transition-all"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </a>
+                            <a 
+                              href={`/api/download?file=${doc.pdf_url}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              title="Scarica PDF Originale"
+                              className="p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          </>
                         )}
-
                         <button 
                           onClick={() => handleDelete(doc)} 
                           disabled={deletingId === doc.id}
-                          className="flex items-center px-3 py-2 text-zinc-500 hover:text-white bg-white dark:bg-zinc-900 hover:bg-red-500 dark:hover:bg-red-600 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-red-500 dark:hover:border-red-600 shadow-sm transition-all disabled:opacity-50"
+                          className="p-1.5 text-zinc-400 hover:text-white bg-white dark:bg-zinc-900 hover:bg-red-500 dark:hover:bg-red-600 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:border-red-500 dark:hover:border-red-600 shadow-sm transition-all disabled:opacity-50"
+                          title="Elimina"
                         >
-                          {deletingId === doc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                          <span className="ml-2 text-xs font-bold uppercase tracking-wider">Elimina</span>
+                          {deletingId === doc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                         </button>
                       </div>
                     </td>
+                    <td className="px-3.5 py-3">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mr-2.5 border border-blue-100 dark:border-blue-800/30">
+                          <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <span className="font-bold text-zinc-900 dark:text-white text-xs">{doc.titolo || 'Senza Titolo'}</span>
+                      </div>
+                    </td>
+                    <td className="px-3.5 py-3 text-zinc-600 dark:text-zinc-300 font-semibold text-xs">{doc.prodotto || '-'}</td>
+                    <td className="px-3.5 py-3">
+                      <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded text-[11px] font-bold font-mono border border-zinc-200 dark:border-zinc-700">
+                        v {doc.versione || '1.0'}
+                      </span>
+                    </td>
+                    <td className="px-3.5 py-3 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium uppercase tracking-wider">{formatDate(doc.created_at)}</td>
                   </tr>
                 ))
               )}

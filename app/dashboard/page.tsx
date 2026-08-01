@@ -105,10 +105,10 @@ export default function DashboardHome() {
     <div className="relative min-h-[calc(100vh-4rem)] md:min-h-screen -m-4 md:-m-6 lg:-m-8 p-4 md:p-8 lg:p-12 bg-[radial-gradient(#d4d4d8_1.5px,transparent_1.5px)] dark:bg-[radial-gradient(#52525b_1.5px,transparent_1.5px)] [background-size:24px_24px] transition-colors duration-300"> 
       <div className="relative z-10 max-w-[1200px] mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700"> 
         <div className="pt-2"> 
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-zinc-900 dark:text-white mb-2"> 
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white mb-1.5"> 
             Bentornato, {userName} 
           </h1> 
-          <p className="text-zinc-500 dark:text-zinc-400 text-base">Il tuo piano corrente e l'utilizzo dei servizi Z-Assist.</p> 
+          <p className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">Il tuo piano corrente e l'utilizzo dei servizi Z-Assist.</p> 
         </div> 
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"> 
@@ -207,7 +207,7 @@ export default function DashboardHome() {
 
       {isUploadModalOpen && ( 
         <> 
-          <div className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-40" onClick={() => setIsUploadModalOpen(false)} /> 
+          <div className="fixed inset-0 bg-zinc-900/10 dark:bg-black/40 backdrop-blur-sm z-40" onClick={() => setIsUploadModalOpen(false)} /> 
           <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-white dark:bg-zinc-950 shadow-2xl z-50 animate-in slide-in-from-right duration-500 flex flex-col border-l border-zinc-200 dark:border-zinc-800"> 
             <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-white dark:bg-zinc-950"> 
               <div className="flex items-center gap-3"> 
@@ -331,7 +331,7 @@ export default function DashboardHome() {
 
       {isStatsOpen && ( 
         <> 
-          <div className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-40" onClick={() => setIsStatsOpen(false)} /> 
+          <div className="fixed inset-0 bg-zinc-900/10 dark:bg-black/40 backdrop-blur-sm z-40" onClick={() => setIsStatsOpen(false)} /> 
           <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-white dark:bg-zinc-950 shadow-2xl z-50 animate-in slide-in-from-right duration-500 flex flex-col border-l border-zinc-200 dark:border-zinc-800"> 
             <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-950"> 
               <div className="flex items-center gap-3"> 

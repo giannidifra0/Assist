@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, BookOpen, FileText, Users, LogOut, UserCircle, Sparkles, Menu, X, Settings, PanelLeftClose, Moon, Sun } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FileText, Users, LogOut, UserCircle, Sparkles, Menu, X, Settings, PanelLeftClose, Moon, Sun, Scale } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
@@ -71,7 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950"></div>;
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex font-sans antialiased text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
+    <div className="h-screen bg-zinc-50 dark:bg-zinc-950 flex font-sans antialiased text-zinc-900 dark:text-zinc-100 transition-colors duration-300 overflow-hidden">
       
       {/* HEADER MOBILE */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 z-50 flex items-center justify-between px-4 transition-colors">
@@ -89,9 +89,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {isMobileOpen && <div className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileOpen(false)} />}
 
       {/* SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-50 bg-zinc-50/90 md:bg-zinc-50/80 dark:bg-zinc-950/90 md:dark:bg-zinc-950/80 backdrop-blur-xl border-r border-zinc-200/60 dark:border-zinc-800/60 flex flex-col transform transition-all duration-500 ease-in-out 
+      <aside className={`fixed inset-y-0 left-0 z-50 bg-zinc-50/90 md:bg-zinc-50/80 dark:bg-zinc-950/90 md:dark:bg-zinc-950/80 backdrop-blur-xl border-r border-zinc-200/60 dark:border-zinc-800/60 flex flex-col transform transition-all duration-500 ease-in-out h-screen shrink-0
         ${isMobileOpen ? 'translate-x-0 w-[260px]' : '-translate-x-full md:translate-x-0'} 
-        ${isCollapsed ? 'md:w-[84px]' : 'md:w-[260px]'} md:relative`}>
+        ${isCollapsed ? 'md:w-[84px]' : 'md:w-[260px]'} md:sticky md:top-0`}>
         
         {/* BOTTONE FLUTTUANTE (Esclusivo Desktop) */}
         <button 
@@ -115,43 +115,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* MENU DI NAVIGAZIONE */}
-        <nav className="flex-1 overflow-y-auto mt-16 md:mt-2 space-y-2 px-3 custom-scrollbar overflow-x-hidden">
+        <nav className="flex-1 overflow-y-auto mt-16 md:mt-2 space-y-1.5 px-3 custom-scrollbar overflow-x-hidden">
           
-          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard" className={`flex items-center h-[38px] rounded-xl px-3.5 mx-1 text-[13px] font-semibold transition-all duration-300 group overflow-hidden
             ${pathname === '/dashboard' ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
-            <LayoutDashboard className="w-5 h-5 shrink-0" strokeWidth={1.5} />
+            <LayoutDashboard className="w-[18px] h-[18px] shrink-0" strokeWidth={1.5} />
             <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Dashboard</span>
           </Link>
           
-          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/knowledge" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/knowledge" className={`flex items-center h-[38px] rounded-xl px-3.5 mx-1 text-[13px] font-semibold transition-all duration-300 group overflow-hidden
             ${pathname === '/dashboard/knowledge' ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
-            <BookOpen className="w-5 h-5 shrink-0" strokeWidth={1.5} />
+            <BookOpen className="w-[18px] h-[18px] shrink-0" strokeWidth={1.5} />
             <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Knowledge Base</span>
           </Link>
 
-          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/manuals" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/manuals" className={`flex items-center h-[38px] rounded-xl px-3.5 mx-1 text-[13px] font-semibold transition-all duration-300 group overflow-hidden
             ${pathname.includes('/manuals') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
-            <FileText className="w-5 h-5 shrink-0" strokeWidth={1.5} />
+            <FileText className="w-[18px] h-[18px] shrink-0" strokeWidth={1.5} />
             <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Archivio Manuali</span>
           </Link>
 
-          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/chat" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
-            ${pathname.includes('/chat') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
-            <Sparkles className="w-5 h-5 shrink-0" strokeWidth={1.5} />
-            <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Assistente IA</span>
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/contracts" className={`flex items-center h-[38px] rounded-xl px-3.5 mx-1 text-[13px] font-semibold transition-all duration-300 group overflow-hidden
+            ${pathname.includes('/contracts') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
+            <Scale className="w-[18px] h-[18px] shrink-0" strokeWidth={1.5} />
+            <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Contrattualistica</span>
           </Link>
 
-          {user.ruolo === 'admin' && (
-            <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/users" className={`flex items-center h-[44px] rounded-xl px-4 mx-1 text-[14px] font-semibold transition-all duration-300 group overflow-hidden
-              ${pathname.includes('/users') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
-              <Users className="w-5 h-5 shrink-0" strokeWidth={1.5} />
-              <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Gestione Utenti</span>
-            </Link>
-          )}
+          <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/chat" className={`flex items-center h-[38px] rounded-xl px-3.5 mx-1 text-[13px] font-semibold transition-all duration-300 group overflow-hidden
+            ${pathname.includes('/chat') ? 'bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/60 dark:border-zinc-800 text-zinc-900 dark:text-white' : 'border border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}>
+            <Sparkles className="w-[18px] h-[18px] shrink-0" strokeWidth={1.5} />
+            <span className={`whitespace-nowrap overflow-hidden transition-all duration-500 ease-in-out ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>Assistente IA</span>
+          </Link>
         </nav>
 
-        {/* SEZIONE INFERIORE */}
-        <div className="mt-auto px-4 pb-5 space-y-4 pt-4 border-t border-zinc-200/30 dark:border-zinc-800/30 w-full overflow-x-hidden">
+        {/* SEZIONE INFERIORE - Sempre fissa in basso */}
+        <div className="shrink-0 px-4 pb-5 space-y-4 pt-4 border-t border-zinc-200/30 dark:border-zinc-800/30 w-full overflow-x-hidden">
           
           {/* SWITCH DARK MODE */}
           <button onClick={toggleTheme} className={`relative flex items-center bg-zinc-200/60 dark:bg-zinc-900/80 border border-zinc-300/50 dark:border-zinc-800 rounded-full transition-all duration-500 ease-in-out overflow-hidden mx-auto ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full h-9 p-1'}`}>
@@ -182,17 +180,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
              </div>
           </Link>
 
-          {/* PULSANTE DISCONNETTI */}
-          <button onClick={handleLogout} className={`flex items-center text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-all duration-500 ease-in-out overflow-hidden mx-auto ${isCollapsed ? 'w-10 h-10 rounded-full justify-center bg-transparent hover:bg-red-50 dark:hover:bg-red-900/20 pl-0' : 'w-full pl-2 py-1.5'}`}>
-             <LogOut className="w-4 h-4 shrink-0" strokeWidth={2} />
-             <span className={`font-semibold text-sm transition-all duration-500 ease-in-out whitespace-nowrap overflow-hidden ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[150px] opacity-100 ml-3'}`}>Disconnetti</span>
-          </button>
+          {/* AZIONI IN FONDO: Gestione Utenti + Disconnetti */}
+          <div className={`flex items-center gap-2 transition-all duration-500 ease-in-out overflow-hidden ${isCollapsed ? 'flex-col' : ''}`}>
+            {user.ruolo === 'admin' && (
+              <Link onClick={() => setIsMobileOpen(false)} href="/dashboard/users" className={`flex items-center justify-center transition-all duration-500 ease-in-out overflow-hidden ${isCollapsed ? 'w-10 h-10 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800' : 'flex-1 py-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800'} ${pathname.includes('/users') ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white'}`}>
+                <Users className="w-4 h-4 shrink-0" strokeWidth={2} />
+                <span className={`font-semibold text-xs transition-all duration-500 ease-in-out whitespace-nowrap overflow-hidden ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[100px] opacity-100 ml-2'}`}>Utenti</span>
+              </Link>
+            )}
+            <button onClick={handleLogout} className={`flex items-center justify-center text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-all duration-500 ease-in-out overflow-hidden ${isCollapsed ? 'w-10 h-10 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20' : 'flex-1 py-1.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
+              <LogOut className="w-4 h-4 shrink-0" strokeWidth={2} />
+              <span className={`font-semibold text-xs transition-all duration-500 ease-in-out whitespace-nowrap overflow-hidden ${isCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[100px] opacity-100 ml-2'}`}>Disconnetti</span>
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* CONTENUTO CENTRALE */}
-      <main className="flex-1 overflow-y-auto w-full transition-colors duration-300 relative z-0">
-        <div className="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 w-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto w-full transition-colors duration-300 relative z-0 h-screen flex flex-col">
+        <div className="max-w-[1600px] mx-auto px-3 py-4 pt-20 md:pt-6 md:px-6 lg:px-8 lg:py-8 w-full flex-1 flex flex-col">
           {children}
         </div>
       </main>
