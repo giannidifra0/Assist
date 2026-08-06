@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'; 
 import { createClient } from '@supabase/supabase-js'; 
 import Link from 'next/link'; 
-import { Database, Ticket, Sparkles, RefreshCw, Users, Activity, X, Cpu, FileUp, Save, Trash2, ArrowRight, FileText } from 'lucide-react'; 
+import { Database, Ticket, Sparkles, RefreshCw, Users, Activity, X, Cpu, FileUp, Save, Trash2, ArrowRight, FileText, CloudDownload } from 'lucide-react'; 
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!); 
 
@@ -29,6 +29,7 @@ export default function DashboardHome() {
   const [stats, setStats] = useState({ knowledge: 0, usersOnline: 0, tickets: 0, manuals: 0 }); 
   const [isAdmin, setIsAdmin] = useState(false); 
   const [isSyncing, setIsSyncing] = useState(false); 
+  const [isSyncingCnel, setIsSyncingCnel] = useState(false);
   const [userName, setUserName] = useState(''); 
   const [isStatsOpen, setIsStatsOpen] = useState(false); 
   const [timeFilter, setTimeFilter] = useState<'today' | '7d' | '30d' | 'all'>('7d'); 
@@ -101,6 +102,23 @@ export default function DashboardHome() {
     finally { setIsSyncing(false); } 
   }; 
 
+  const handleSyncCnel = async () => {
+    setIsSyncingCnel(true);
+    try {
+      const response = await fetch('/api/cron/sync-cnel');
+      const data = await response.json();
+      if (data.success) {
+        alert(data.message);
+      } else {
+        alert("Errore: " + (data.error || "Impossibile completare la sincronizzazione."));
+      }
+    } catch (error) {
+      alert("Errore di connessione durante la sincronizzazione CNEL.");
+    } finally {
+      setIsSyncingCnel(false);
+    }
+  };
+
   return ( 
     <div className="relative min-h-[calc(100vh-4rem)] md:min-h-screen -m-4 md:-m-6 lg:-m-8 p-4 md:p-8 lg:p-12 bg-[radial-gradient(#d4d4d8_1.5px,transparent_1.5px)] dark:bg-[radial-gradient(#52525b_1.5px,transparent_1.5px)] [background-size:24px_24px] transition-colors duration-300"> 
       <div className="relative z-10 max-w-[1200px] mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700"> 
@@ -136,7 +154,7 @@ export default function DashboardHome() {
           <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-zinc-200/80 dark:border-zinc-800 hover:shadow-md transition-shadow duration-300"> 
             <div className="flex items-center justify-between mb-4"> 
               <div className="flex items-center gap-2.5"> 
-                <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 tracking-wide">Utenti Attivi</h2> 
+                <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 tracking-wide">Utenti Online</h2> 
                 {stats.usersOnline > 0 && ( 
                   <span className="relative flex h-2.5 w-2.5 mt-0.5"> 
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span> 
@@ -179,6 +197,7 @@ export default function DashboardHome() {
                   </div> 
                   <ArrowRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0 transition-all duration-300 mt-1" /> 
                 </button> 
+
                 <button onClick={handleSyncEmbeddings} disabled={isSyncing} className="text-left group flex items-start p-5 md:p-6 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md transition-all duration-300 disabled:opacity-50"> 
                   <div className="flex-shrink-0 p-3 bg-zinc-100 dark:bg-zinc-800 rounded-xl mr-5 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700 transition-colors"> 
                     <RefreshCw className={`w-6 h-6 text-zinc-700 dark:text-zinc-300 ${isSyncing ? 'animate-spin' : ''}`} strokeWidth={1.5} /> 
@@ -189,6 +208,18 @@ export default function DashboardHome() {
                   </div> 
                   <ArrowRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0 transition-all duration-300 mt-1" /> 
                 </button> 
+
+                <button onClick={handleSyncCnel} disabled={isSyncingCnel} className="text-left group flex items-start p-5 md:p-6 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md transition-all duration-300 disabled:opacity-50"> 
+                  <div className="flex-shrink-0 p-3 bg-zinc-100 dark:bg-zinc-800 rounded-xl mr-5 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700 transition-colors"> 
+                    <CloudDownload className={`w-6 h-6 text-zinc-700 dark:text-zinc-300 ${isSyncingCnel ? 'animate-bounce' : ''}`} strokeWidth={1.5} /> 
+                  </div> 
+                  <div className="flex-1 pr-4"> 
+                    <h3 className="text-base font-semibold text-zinc-900 dark:text-white mb-1.5">Sincronizza CNEL</h3> 
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">Scarica l'ultimo aggiornamento Open Data dell'Archivio Corrente CCNL e aggiorna il database.</p> 
+                  </div> 
+                  <ArrowRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0 transition-all duration-300 mt-1" /> 
+                </button>
+
                 <button onClick={() => setIsStatsOpen(true)} className="text-left group flex items-start p-5 md:p-6 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md transition-all duration-300"> 
                   <div className="flex-shrink-0 p-3 bg-zinc-100 dark:bg-zinc-800 rounded-xl mr-5 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700 transition-colors"> 
                     <Activity className="w-6 h-6 text-zinc-700 dark:text-zinc-300" strokeWidth={1.5} /> 
@@ -239,7 +270,6 @@ export default function DashboardHome() {
                             if (!file) return; 
                             setSelectedPdfFile(file); 
 
-                            // AUTO-LETTURA DEL NOME DEL FILE SENZA ESTENSIONE
                             const nomeSenzaEstensione = file.name.replace(/\.[^/.]+$/, ""); 
                             setDocMetadata(prev => ({ ...prev, titolo: nomeSenzaEstensione })); 
 
