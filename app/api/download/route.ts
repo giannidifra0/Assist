@@ -1,36 +1,63 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/auth/server';
+import { createAdminSupabaseClient } from '@/lib/supabase/admin';
+import { isSafeStorageFilename } from '@/lib/security/validation';
 
 export async function GET(req: Request) {
+  const auth = await requireAuth('manuals:read');
+  if (auth.errorResponse) return auth.errorResponse;
+
   try {
     const { searchParams } = new URL(req.url);
-    const fileName = searchParams.get('file');
+    const fileName = searchParams.get('file')?.trim() ?? '';
+    const inlineMode = searchParams.get('inline') === '1';
 
-    if (!fileName) {
-      return new NextResponse('Nessun file specificato', { status: 400 });
+    if (!fileName || !isSafeStorageFilename(fileName)) {
+      return new NextResponse('Nome file mancante o non valido.', { status: 400 });
     }
 
-    // Chiave Admin per scavalcare ogni blocco di sicurezza RLS
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const admin = createAdminSupabaseClient();
 
-    // Invece di generare un link esterno, scarichiamo il file nel server in modo sicuro
-    const { data, error } = await supabase.storage.from('manuali_pdf').download(fileName);
+    // Verifica allowlist sul DB prima di accedere allo Storage
+    const { data: docMatch } = await admin
+      .from('documenti')
+      .select('id')
+      .eq('pdf_url', fileName)
+      .limit(1)
+      .maybeSingle();
 
+    if (!docMatch) {
+      const { data: chunkMatch } = await admin
+        .from('documenti_chunk')
+        .select('id')
+        .eq('pdf_url', fileName)
+        .limit(1)
+        .maybeSingle();
+
+      if (!chunkMatch) {
+        return new NextResponse('File non associato ad alcun manuale censito.', { status: 404 });
+      }
+    }
+
+    const { data, error } = await admin.storage.from('manuali_pdf').download(fileName);
     if (error || !data) {
-      throw new Error(error?.message || 'File non trovato nel bucket');
+      return new NextResponse('File non trovato nel bucket.', { status: 404 });
     }
 
-    // Passiamo il file direttamente al browser dell'utente forzando il download
+    const disposition = inlineMode ? 'inline' : 'attachment';
+
     return new NextResponse(data, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': `${disposition}; filename="${fileName}"`,
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'private, no-store',
       },
     });
-
-  } catch (error: any) {
-    console.error("Errore Download:", error);
-    return new NextResponse('Errore durante il download del file: ' + error.message, { status: 500 });
+  } catch (error: unknown) {
+    console.error('Errore Download:', error);
+    const message = error instanceof Error ? error.message : 'Errore sconosciuto';
+    return new NextResponse(`Errore durante il download del file: ${message}`, { status: 500 });
   }
 }

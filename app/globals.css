@@ -1,11 +1,58 @@
 @import "tailwindcss";
 
-/* Forza Tailwind v4 a usare la strategia a classi per la Night Mode */
+/* Forza Tailwind v4 a usare sia la classe .dark sia le preferenze */
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light dark;
+  --background: #fafafa;
+  --foreground: #18181b;
+  --scrollbar-thumb: #71717a;
+  --scrollbar-track: #f4f4f5;
+  --progress-track: #e4e4e7;
+  --progress-fill: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #09090b;
+    --foreground: #f4f4f5;
+    --scrollbar-thumb: #a1a1aa;
+    --scrollbar-track: #18181b;
+    --progress-track: #27272a;
+    --progress-fill: #3b82f6;
+  }
+}
+
+@supports (color: light-dark(white, black)) {
+  :root {
+    --background: light-dark(#fafafa, #09090b);
+    --foreground: light-dark(#18181b, #f4f4f5);
+    --scrollbar-thumb: light-dark(#6b7280, #a1a1aa);
+    --scrollbar-track: light-dark(#f4f4f5, #18181b);
+    --progress-track: light-dark(#e4e4e7, #27272a);
+    --progress-fill: light-dark(#2563eb, #3b82f6);
+  }
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --scrollbar-thumb: #a1a1aa;
+  --scrollbar-track: #18181b;
+  --progress-track: #27272a;
+  --progress-fill: #3b82f6;
+}
+
+:root:has(> head > meta[name="color-scheme"][content="light"]) {
+  color-scheme: light;
+  --background: #fafafa;
+  --foreground: #18181b;
+  --scrollbar-thumb: #6b7280;
+  --scrollbar-track: #f4f4f5;
+  --progress-track: #e4e4e7;
+  --progress-fill: #2563eb;
 }
 
 @theme inline {
@@ -15,15 +62,101 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar accessibile con fallback legacy */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@supports not (scrollbar-color: auto) {
+  .custom-scrollbar {
+    scrollbar-width: auto;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+}
+
+/* Barra progresso nativa <progress class="z-progress"> (determinata e indeterminata) */
+progress.z-progress {
+  appearance: none;
+  border: 0 solid;
+  overflow: clip;
+  container-type: inline-size;
+  --progress-bar-radius: 9999px;
+  --progress-bar-indeterminate-size: 32%;
+  --progress-bar-indeterminate-animation-duration: 1.5s;
+  border-radius: var(--progress-bar-radius);
+  background: var(--progress-track);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  progress.z-progress {
+    --progress-bar-indeterminate-animation-duration: 10s;
+  }
+}
+
+progress.z-progress:indeterminate {
+  --progress-bar-animation: var(
+    --progress-bar-indeterminate-animation,
+    z-progress-indeterminate var(--progress-bar-indeterminate-animation-duration) infinite linear
+  );
+}
+
+progress.z-progress::-webkit-progress-bar {
+  background: transparent;
+}
+
+progress.z-progress::-webkit-progress-value {
+  background: var(--progress-fill);
+  border-radius: var(--progress-bar-radius);
+  transition: inline-size 0.3s ease;
+  animation: var(--progress-bar-animation, revert-rule);
+}
+
+progress.z-progress::-moz-progress-bar {
+  background: var(--progress-fill);
+  border-radius: var(--progress-bar-radius);
+  transition: inline-size 0.3s ease;
+  animation: var(--progress-bar-animation, revert-rule);
+}
+
+@keyframes z-progress-indeterminate {
+  from,
+  to {
+    inline-size: var(--progress-bar-indeterminate-size);
+    margin-right: auto;
+  }
+  from {
+    translate: -100%;
+  }
+  to {
+    translate: 100cqi;
+  }
+}
+
+/* Contenimento scroll sotto i <dialog> nativi (senza bloccare body/html) */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(9, 9, 11, 0.48);
+  backdrop-filter: blur(4px);
 }

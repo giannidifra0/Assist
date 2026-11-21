@@ -1,87 +1,234 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '@/lib/auth/server';
+import { createAdminSupabaseClient } from '@/lib/supabase/admin';
+import { isValidRole, normalizeRole } from '@/lib/auth/roles';
+import { isNonEmptyString, isValidEmail, isValidId } from '@/lib/security/validation';
+import type { UserProfile } from '@/lib/types/domain';
+
+interface DbUserRow {
+  id: string;
+  email: string;
+  username: string;
+  ruolo: string;
+  attivo: boolean;
+  nominativo: string;
+  is_online?: boolean;
+}
+
+export async function GET() {
+  const auth = await requireAuth('users:manage');
+  if (auth.errorResponse) return auth.errorResponse;
+
+  try {
+    const admin = createAdminSupabaseClient();
+    const { data, error } = await admin
+      .from('utenti')
+      .select('id, email, username, ruolo, attivo, nominativo, is_online')
+      .order('nominativo', { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const users: UserProfile[] = ((data ?? []) as DbUserRow[]).map((row) => ({
+      id: row.id,
+      email: row.email,
+      username: row.username,
+      nominativo: row.nominativo,
+      ruolo: normalizeRole(row.ruolo),
+      attivo: Boolean(row.attivo),
+      is_online: Boolean(row.is_online),
+    }));
+
+    return NextResponse.json({ success: true, users });
+  } catch (error: unknown) {
+    console.error('Errore GET /api/admin/users:', error);
+    const message = error instanceof Error ? error.message : 'Errore caricamento utenti.';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
 
 export async function POST(req: Request) {
-  try {
-    const { action, id, email, originalEmail, password, nominativo, username, ruolo, attivo } = await req.json();
-    
-    // Inizializziamo Supabase in "God Mode" usando la Service Role Key per bypassare l'RLS
-    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const auth = await requireAuth('users:manage');
+  if (auth.errorResponse) return auth.errorResponse;
 
-    // ==========================================
-    // CREAZIONE NUOVO UTENTE (Registrazione Admin)
-    // ==========================================
+  try {
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body.action !== 'string') {
+      return NextResponse.json({ success: false, error: 'Richiesta non valida.' }, { status: 400 });
+    }
+
+    const action = body.action;
+    const admin = createAdminSupabaseClient();
+
     if (action === 'CREATE') {
-      // 1. Crea l'utente sicuro in Authentication
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: email,
-        password: password,
-        email_confirm: true // Salta la conferma via mail obbligatoria
-      });
-      
-      if (authError || !authData.user) {
-        throw new Error(`Errore di sicurezza Supabase: ${authError?.message || 'Utente non creato'}`);
+      if (
+        !isValidEmail(body.email) ||
+        !isNonEmptyString(body.username, 2, 60) ||
+        !isNonEmptyString(body.nominativo, 2, 120) ||
+        !isValidRole(body.ruolo) ||
+        typeof body.password !== 'string' ||
+        body.password.length < 8
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Compila tutti i campi obbligatori. La password iniziale deve avere almeno 8 caratteri.',
+          },
+          { status: 400 }
+        );
       }
 
-      // 2. Crea la riga nel gestionale USANDO LO STESSO IDENTICO ID
-      const { error: dbError } = await supabaseAdmin.from('utenti').insert([{
-        id: authData.user.id, // <-- Collegamento cruciale tra Auth e Tabella
-        email: email,
-        username: username,
-        ruolo: ruolo,
-        attivo: attivo,
-        nominativo: nominativo,
-        is_online: false
-        // 'data_creazione' non serve passarlo, Postgres lo compila da solo (timestamptz)
-      }]);
+      const email = body.email.trim().toLowerCase();
+      const username = body.username.trim();
+      const nominativo = body.nominativo.trim();
+      const ruolo = body.ruolo;
+      const attivo = typeof body.attivo === 'boolean' ? body.attivo : true;
 
-      // 3. Meccanismo di sicurezza (Rollback)
+      const { data: authData, error: authError } = await admin.auth.admin.createUser({
+        email,
+        password: body.password,
+        email_confirm: true,
+      });
+
+      if (authError || !authData.user) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Errore creazione credenziali: ${authError?.message || 'Utente non creato'}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const { error: dbError } = await admin.from('utenti').insert([
+        {
+          id: authData.user.id,
+          email,
+          username,
+          ruolo,
+          attivo,
+          nominativo,
+          is_online: false,
+        },
+      ]);
+
       if (dbError) {
-        // Se il DB fallisce, eliminiamo l'utente appena creato dall'Auth per mantenere il sistema pulito
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-        throw new Error(`Errore di scrittura nel Database: ${dbError.message}`);
+        await admin.auth.admin.deleteUser(authData.user.id);
+        return NextResponse.json(
+          { success: false, error: `Errore scrittura DB: ${dbError.message}` },
+          { status: 400 }
+        );
       }
 
       return NextResponse.json({ success: true });
     }
 
-    // ==========================================
-    // AGGIORNAMENTO E CANCELLAZIONE
-    // ==========================================
-    // Cerca l'utente in Auth per le operazioni successive
-    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-    const authUser = users.find(u => u.email === (originalEmail || email));
-
     if (action === 'UPDATE') {
-      // Se è stata inserita una nuova password, aggiornala in Auth
-      if (authUser && password) {
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, { password });
-        if (authError) throw new Error(`Errore aggiornamento Password Auth: ${authError.message}`);
+      if (
+        !isValidId(body.id) ||
+        !isValidEmail(body.email) ||
+        !isNonEmptyString(body.username, 2, 60) ||
+        !isNonEmptyString(body.nominativo, 2, 120) ||
+        !isValidRole(body.ruolo)
+      ) {
+        return NextResponse.json(
+          { success: false, error: 'Dati utente non validi.' },
+          { status: 400 }
+        );
       }
 
-      // Aggiorna l'anagrafica
-      const { error: dbError } = await supabaseAdmin.from('utenti').update({
-        email, username, ruolo, attivo, nominativo
-      }).eq('id', id);
-      
-      if (dbError) throw new Error(`Errore aggiornamento DB: ${dbError.message}`);
+      const userId = body.id.trim();
+      const email = body.email.trim().toLowerCase();
+      const username = body.username.trim();
+      const nominativo = body.nominativo.trim();
+      const ruolo = body.ruolo;
+      const attivo = typeof body.attivo === 'boolean' ? body.attivo : true;
+      const password = typeof body.password === 'string' ? body.password : '';
+
+      if (password.length > 0 && password.length < 8) {
+        return NextResponse.json(
+          { success: false, error: 'La nuova password deve avere almeno 8 caratteri.' },
+          { status: 400 }
+        );
+      }
+
+      if (userId === auth.user.id && (!attivo || ruolo !== 'admin')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Non puoi disabilitare o rimuovere i privilegi admin dal tuo stesso account.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const authUpdatePayload: {
+        email: string;
+        email_confirm: boolean;
+        password?: string;
+      } = {
+        email,
+        email_confirm: true,
+      };
+      if (password.length > 0) {
+        authUpdatePayload.password = password;
+      }
+
+      const { error: authError } = await admin.auth.admin.updateUserById(userId, authUpdatePayload);
+      if (authError) {
+        return NextResponse.json(
+          { success: false, error: `Errore aggiornamento Auth: ${authError.message}` },
+          { status: 400 }
+        );
+      }
+
+      const { error: dbError } = await admin
+        .from('utenti')
+        .update({ email, username, ruolo, attivo, nominativo })
+        .eq('id', userId);
+
+      if (dbError) {
+        return NextResponse.json(
+          { success: false, error: `Errore aggiornamento DB: ${dbError.message}` },
+          { status: 400 }
+        );
+      }
 
       return NextResponse.json({ success: true });
     }
 
     if (action === 'DELETE') {
-      // Cancella prima dal gestionale
-      await supabaseAdmin.from('utenti').delete().eq('id', id);
-      // Poi distruggi l'accesso in sicurezza
-      if (authUser) {
-        await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      if (!isValidId(body.id)) {
+        return NextResponse.json({ success: false, error: 'ID utente non valido.' }, { status: 400 });
       }
+
+      const userId = body.id.trim();
+      if (userId === auth.user.id) {
+        return NextResponse.json(
+          { success: false, error: 'Non puoi eliminare il tuo account mentre sei connesso.' },
+          { status: 400 }
+        );
+      }
+
+      const { error: dbDeleteError } = await admin.from('utenti').delete().eq('id', userId);
+      if (dbDeleteError) {
+        throw new Error(`Errore eliminazione DB: ${dbDeleteError.message}`);
+      }
+
+      const { error: authDeleteError } = await admin.auth.admin.deleteUser(userId);
+      if (authDeleteError && !authDeleteError.message.toLowerCase().includes('not found')) {
+        console.warn('Warning eliminazione utente Auth:', authDeleteError.message);
+      }
+
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ error: 'Azione non valida' }, { status: 400 });
-  } catch (error: any) {
-    console.error("Errore API Admin Users:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Azione non valida.' }, { status: 400 });
+  } catch (error: unknown) {
+    console.error('Errore API Admin Users:', error);
+    const message = error instanceof Error ? error.message : 'Errore interno gestione utenti.';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
